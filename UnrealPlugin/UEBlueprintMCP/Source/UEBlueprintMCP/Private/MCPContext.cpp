@@ -113,6 +113,89 @@ void FMCPEditorContext::Clear()
 	LastCreatedActorName.Empty();
 	LastCreatedWidgetName.Empty();
 	DirtyPackages.Empty();
+
+	// Clear material context
+	CurrentMaterial = nullptr;
+	MaterialNodeMap.Empty();
+	LastCreatedMaterialNodeName.Empty();
+}
+
+// =========================================================================
+// Material Context Methods
+// =========================================================================
+
+void FMCPEditorContext::SetCurrentMaterial(UMaterial* Mat)
+{
+	// If switching materials, clear the node map
+	if (CurrentMaterial.Get() != Mat)
+	{
+		ClearMaterialNodes();
+	}
+	CurrentMaterial = Mat;
+}
+
+void FMCPEditorContext::RegisterMaterialNode(const FString& NodeName, UMaterialExpression* Expr)
+{
+	if (!NodeName.IsEmpty() && Expr)
+	{
+		MaterialNodeMap.Add(NodeName, Expr);
+		LastCreatedMaterialNodeName = NodeName;
+	}
+}
+
+UMaterialExpression* FMCPEditorContext::GetMaterialNode(const FString& NodeName) const
+{
+	// Handle special alias for last created node
+	if (NodeName == TEXT("$last_node") || NodeName == TEXT("$last"))
+	{
+		if (!LastCreatedMaterialNodeName.IsEmpty())
+		{
+			if (const TWeakObjectPtr<UMaterialExpression>* Found = MaterialNodeMap.Find(LastCreatedMaterialNodeName))
+			{
+				return Found->Get();
+			}
+		}
+		return nullptr;
+	}
+
+	// Find by name
+	if (const TWeakObjectPtr<UMaterialExpression>* Found = MaterialNodeMap.Find(NodeName))
+	{
+		return Found->Get();
+	}
+	return nullptr;
+}
+
+void FMCPEditorContext::ClearMaterialNodes()
+{
+	MaterialNodeMap.Empty();
+	LastCreatedMaterialNodeName.Empty();
+}
+
+UMaterial* FMCPEditorContext::GetMaterialByNameOrCurrent(const FString& MaterialName) const
+{
+	// If name is empty, use current
+	if (MaterialName.IsEmpty())
+	{
+		return CurrentMaterial.Get();
+	}
+
+	// Search for Material by name in asset registry
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+	IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
+
+	TArray<FAssetData> AssetList;
+	AssetRegistry.GetAssetsByClass(UMaterial::StaticClass()->GetClassPathName(), AssetList);
+
+	for (const FAssetData& AssetData : AssetList)
+	{
+		if (AssetData.AssetName.ToString() == MaterialName)
+		{
+			return Cast<UMaterial>(AssetData.GetAsset());
+		}
+	}
+
+	return nullptr;
 }
 
 TSharedPtr<FJsonObject> FMCPEditorContext::ToJson() const
@@ -155,6 +238,28 @@ TSharedPtr<FJsonObject> FMCPEditorContext::ToJson() const
 
 	// Dirty packages count
 	JsonObj->SetNumberField(TEXT("dirty_packages_count"), DirtyPackages.Num());
+
+	// Material context
+	if (UMaterial* Mat = CurrentMaterial.Get())
+	{
+		JsonObj->SetStringField(TEXT("current_material"), Mat->GetName());
+
+		// List registered material nodes
+		TArray<TSharedPtr<FJsonValue>> NodeNames;
+		for (const auto& Pair : MaterialNodeMap)
+		{
+			if (Pair.Value.IsValid())
+			{
+				NodeNames.Add(MakeShared<FJsonValueString>(Pair.Key));
+			}
+		}
+		JsonObj->SetArrayField(TEXT("material_nodes"), NodeNames);
+
+		if (!LastCreatedMaterialNodeName.IsEmpty())
+		{
+			JsonObj->SetStringField(TEXT("last_material_node"), LastCreatedMaterialNodeName);
+		}
+	}
 
 	return JsonObj;
 }

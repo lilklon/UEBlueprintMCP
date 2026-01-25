@@ -166,12 +166,21 @@ class PersistentUnrealConnection:
                 command["params"] = params
 
             try:
+                # Log outgoing command (truncate large params)
+                params_preview = json.dumps(params)[:200] if params else "none"
+                logger.debug(f">>> Sending command '{command_type}' with params: {params_preview}")
+
                 # Send command
                 self._send_raw(command)
 
                 # Receive response
                 response = self._receive_raw()
                 self._last_activity = time.time()
+
+                # Log incoming response (truncate large responses)
+                if response:
+                    response_preview = json.dumps(response)[:500]
+                    logger.warning(f"<<< [{command_type}] Response: {response_preview}")
 
                 if response is None:
                     # Connection died, try reconnect
@@ -185,17 +194,62 @@ class PersistentUnrealConnection:
                         recoverable=True
                     )
 
-                # Parse response
-                if response.get("status") == "success":
-                    return CommandResult(
-                        success=True,
-                        data=response.get("result", {})
-                    )
+                # Parse response - handle both formats:
+                # Format 1 (EditorAction): {"success": true, ...data...}
+                # Format 2 (MCPBridge legacy): {"status": "success", "result": {...}}
+                #
+                # IMPORTANT: Check "success" field FIRST because some responses
+                # have both "success" and "status" where "status" is a data field
+                # (e.g., compilation status "UpToDate"), not a success indicator.
+
+                # Check Format 1 first (success bool field)
+                if "success" in response:
+                    if response.get("success") is True:
+                        # Extract all fields except 'success' as data
+                        data = {k: v for k, v in response.items() if k != "success"}
+                        return CommandResult(
+                            success=True,
+                            data=data
+                        )
+                    else:
+                        error_msg = response.get("error", "Unknown error (no error message in response)")
+                        error_type = response.get("error_type", "unknown")
+                        # Include raw response in error for debugging
+                        raw_preview = json.dumps(response)[:200]
+                        full_error = f"[{error_type}] {error_msg} | RAW: {raw_preview}"
+                        logger.error(f"Command '{command_type}' failed: {full_error}")
+                        return CommandResult(
+                            success=False,
+                            error=full_error,
+                            recoverable=response.get("recoverable", True)
+                        )
+
+                # Check Format 2 (legacy status field - only if no success field)
+                elif "status" in response:
+                    if response.get("status") == "success":
+                        return CommandResult(
+                            success=True,
+                            data=response.get("result", {})
+                        )
+                    else:
+                        error_msg = response.get("error", "Unknown error (no error message in response)")
+                        error_type = response.get("error_type", "unknown")
+                        raw_preview = json.dumps(response)[:200]
+                        full_error = f"[{error_type}] {error_msg} | RAW: {raw_preview}"
+                        logger.error(f"Command '{command_type}' failed: {full_error}")
+                        return CommandResult(
+                            success=False,
+                            error=full_error,
+                            recoverable=response.get("recoverable", True)
+                        )
+
+                # Unknown response format - log the raw response for debugging
                 else:
+                    logger.error(f"Command '{command_type}' returned unknown response format: {json.dumps(response)[:500]}")
                     return CommandResult(
                         success=False,
-                        error=response.get("error", "Unknown error"),
-                        recoverable=response.get("recoverable", True)
+                        error=f"Unknown response format from Unreal. Raw: {json.dumps(response)[:200]}",
+                        recoverable=True
                     )
 
             except socket.timeout:

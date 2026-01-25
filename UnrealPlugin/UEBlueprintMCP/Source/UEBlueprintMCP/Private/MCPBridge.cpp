@@ -8,6 +8,7 @@
 #include "Actions/NodeActions.h"
 #include "Actions/ProjectActions.h"
 #include "Actions/UMGActions.h"
+#include "Actions/MaterialActions.h"
 #include "Engine/World.h"
 #include "GameFramework/Actor.h"
 #include "Kismet/GameplayStatics.h"
@@ -161,6 +162,18 @@ void UMCPBridge::RegisterActions()
 	ActionHandlers.Add(TEXT("bind_widget_event"), MakeShared<FBindWidgetEventAction>());
 	ActionHandlers.Add(TEXT("add_widget_to_viewport"), MakeShared<FAddWidgetToViewportAction>());
 	ActionHandlers.Add(TEXT("set_text_block_binding"), MakeShared<FSetTextBlockBindingAction>());
+
+	// =========================================================================
+	// Material Actions (Materials, Shaders, Post-Process)
+	// =========================================================================
+	ActionHandlers.Add(TEXT("create_material"), MakeShared<FCreateMaterialAction>());
+	ActionHandlers.Add(TEXT("add_material_expression"), MakeShared<FAddMaterialExpressionAction>());
+	ActionHandlers.Add(TEXT("connect_material_expressions"), MakeShared<FConnectMaterialExpressionsAction>());
+	ActionHandlers.Add(TEXT("connect_to_material_output"), MakeShared<FConnectToMaterialOutputAction>());
+	ActionHandlers.Add(TEXT("set_material_expression_property"), MakeShared<FSetMaterialExpressionPropertyAction>());
+	ActionHandlers.Add(TEXT("compile_material"), MakeShared<FCompileMaterialAction>());
+	ActionHandlers.Add(TEXT("create_material_instance"), MakeShared<FCreateMaterialInstanceAction>());
+	ActionHandlers.Add(TEXT("create_post_process_volume"), MakeShared<FCreatePostProcessVolumeAction>());
 
 	UE_LOG(LogTemp, Log, TEXT("UEBlueprintMCP: Registered %d action handlers"), ActionHandlers.Num());
 }

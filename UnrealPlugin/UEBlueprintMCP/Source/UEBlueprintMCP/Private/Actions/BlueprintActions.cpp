@@ -217,16 +217,25 @@ void FCreateBlueprintAction::CleanupExistingBlueprint(const FString& BlueprintNa
 
 bool FCompileBlueprintAction::Validate(const TSharedPtr<FJsonObject>& Params, FMCPEditorContext& Context, FString& OutError)
 {
-	return ValidateBlueprint(Params, Context, OutError);
+	UE_LOG(LogTemp, Log, TEXT("UEBlueprintMCP: compile_blueprint Validate called"));
+	bool bResult = ValidateBlueprint(Params, Context, OutError);
+	UE_LOG(LogTemp, Log, TEXT("UEBlueprintMCP: compile_blueprint Validate result: %s, Error: '%s'"),
+		bResult ? TEXT("true") : TEXT("false"), *OutError);
+	return bResult;
 }
 
 TSharedPtr<FJsonObject> FCompileBlueprintAction::ExecuteInternal(const TSharedPtr<FJsonObject>& Params, FMCPEditorContext& Context)
 {
+	UE_LOG(LogTemp, Log, TEXT("UEBlueprintMCP: compile_blueprint ExecuteInternal called"));
+
 	UBlueprint* Blueprint = GetTargetBlueprint(Params, Context);
 	if (!Blueprint)
 	{
+		UE_LOG(LogTemp, Error, TEXT("UEBlueprintMCP: compile_blueprint - Blueprint not found"));
 		return CreateErrorResponse(TEXT("Blueprint not found"), TEXT("not_found"));
 	}
+
+	UE_LOG(LogTemp, Log, TEXT("UEBlueprintMCP: compile_blueprint - Found blueprint '%s'"), *Blueprint->GetName());
 
 	// Compile
 	FKismetEditorUtilities::CompileBlueprint(Blueprint);
@@ -289,7 +298,7 @@ TSharedPtr<FJsonObject> FCompileBlueprintAction::ExecuteInternal(const TSharedPt
 	// Build response
 	TSharedPtr<FJsonObject> Result = MakeShared<FJsonObject>();
 	Result->SetStringField(TEXT("name"), Blueprint->GetName());
-	Result->SetBoolField(TEXT("success"), bSuccess);
+	Result->SetBoolField(TEXT("compiled"), bSuccess);  // Use "compiled" instead of "success" to avoid conflict
 	Result->SetStringField(TEXT("status"), StatusStr);
 	Result->SetNumberField(TEXT("error_count"), Errors.Num());
 	Result->SetNumberField(TEXT("warning_count"), Warnings.Num());
@@ -304,7 +313,14 @@ TSharedPtr<FJsonObject> FCompileBlueprintAction::ExecuteInternal(const TSharedPt
 		Result->SetArrayField(TEXT("warnings"), Warnings);
 	}
 
-	// Note: We return success=false via the result if compilation failed, but the action itself succeeded
+	// If compilation failed, return as an error response with details
+	if (!bSuccess)
+	{
+		FString ErrorMsg = FString::Printf(TEXT("Blueprint '%s' compilation failed with %d error(s)"),
+			*Blueprint->GetName(), Errors.Num());
+		return CreateErrorResponse(ErrorMsg, TEXT("compilation_failed"));
+	}
+
 	return CreateSuccessResponse(Result);
 }
 

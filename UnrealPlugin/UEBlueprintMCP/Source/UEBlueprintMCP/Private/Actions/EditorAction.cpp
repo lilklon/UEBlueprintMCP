@@ -19,22 +19,34 @@ TSharedPtr<FJsonObject> FEditorAction::Execute(const TSharedPtr<FJsonObject>& Pa
 {
 	FString Error;
 
+	UE_LOG(LogTemp, Log, TEXT("UEBlueprintMCP: Action '%s' Execute started"), *GetActionName());
+
 	// Step 1: Pre-validation
 	if (!Validate(Params, Context, Error))
 	{
+		UE_LOG(LogTemp, Warning, TEXT("UEBlueprintMCP: Action '%s' validation failed: %s"), *GetActionName(), *Error);
 		return CreateErrorResponse(Error, TEXT("validation_failed"));
 	}
+
+	UE_LOG(LogTemp, Log, TEXT("UEBlueprintMCP: Action '%s' validation passed"), *GetActionName());
 
 	// Step 2: Execute with crash protection
 	TSharedPtr<FJsonObject> Result = ExecuteWithCrashProtection(Params, Context);
 	if (!Result)
 	{
+		UE_LOG(LogTemp, Error, TEXT("UEBlueprintMCP: Action '%s' returned nullptr!"), *GetActionName());
 		return CreateCrashPreventedResponse();
 	}
+
+	UE_LOG(LogTemp, Log, TEXT("UEBlueprintMCP: Action '%s' ExecuteInternal returned (has success=%s, has error=%s)"),
+		*GetActionName(),
+		Result->HasField(TEXT("success")) ? TEXT("yes") : TEXT("no"),
+		Result->HasField(TEXT("error")) ? TEXT("yes") : TEXT("no"));
 
 	// Step 3: Post-validation
 	if (!PostValidate(Context, Error))
 	{
+		UE_LOG(LogTemp, Warning, TEXT("UEBlueprintMCP: Action '%s' post-validation failed: %s"), *GetActionName(), *Error);
 		return CreateErrorResponse(Error, TEXT("post_validation_failed"));
 	}
 

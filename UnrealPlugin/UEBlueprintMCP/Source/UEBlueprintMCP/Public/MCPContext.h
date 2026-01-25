@@ -5,6 +5,8 @@
 #include "CoreMinimal.h"
 #include "Dom/JsonObject.h"
 #include "Engine/Blueprint.h"
+#include "Materials/Material.h"
+#include "Materials/MaterialExpression.h"
 
 /**
  * FMCPEditorContext
@@ -30,6 +32,19 @@ public:
 
 	/** Currently active world */
 	TWeakObjectPtr<UWorld> CurrentWorld;
+
+	// =========================================================================
+	// Material Editor Context
+	// =========================================================================
+
+	/** Currently active Material */
+	TWeakObjectPtr<UMaterial> CurrentMaterial;
+
+	/** Map of node names to expressions (for connecting by name) */
+	TMap<FString, TWeakObjectPtr<UMaterialExpression>> MaterialNodeMap;
+
+	/** Name of the last created material expression node */
+	FString LastCreatedMaterialNodeName;
 
 	// =========================================================================
 	// Recently Created Objects (for command chaining)
@@ -78,6 +93,25 @@ public:
 
 	/** Convert context to JSON for Python inspection */
 	TSharedPtr<FJsonObject> ToJson() const;
+
+	// =========================================================================
+	// Material Context Methods
+	// =========================================================================
+
+	/** Set the current Material focus */
+	void SetCurrentMaterial(UMaterial* Mat);
+
+	/** Register a created expression by name for later connection */
+	void RegisterMaterialNode(const FString& NodeName, UMaterialExpression* Expr);
+
+	/** Get expression by registered name */
+	UMaterialExpression* GetMaterialNode(const FString& NodeName) const;
+
+	/** Clear material nodes map (when switching materials) */
+	void ClearMaterialNodes();
+
+	/** Get Material by name, or use current if name is empty */
+	UMaterial* GetMaterialByNameOrCurrent(const FString& MaterialName) const;
 
 	// =========================================================================
 	// Convenience Methods

@@ -7,6 +7,6 @@ Each module provides:
 - handle_tool(name, args): Async function to execute tool
 """
 
-from . import blueprint, editor, nodes, project, umg
+from . import blueprint, editor, nodes, project, umg, materials
 
-__all__ = ["blueprint", "editor", "nodes", "project", "umg"]
+__all__ = ["blueprint", "editor", "nodes", "project", "umg", "materials"]

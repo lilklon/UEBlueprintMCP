@@ -36,6 +36,8 @@ public class UEBlueprintMCP : ModuleRules
 			"InputBlueprintNodes",
 			"EditorScriptingUtilities",
 			"AssetTools",
+			"MaterialEditor",     // For UMaterialEditingLibrary and material expression manipulation
+			"RenderCore",         // For material shader compilation
 		});
 
 		// Ensure proper RTTI/exceptions for crash handling

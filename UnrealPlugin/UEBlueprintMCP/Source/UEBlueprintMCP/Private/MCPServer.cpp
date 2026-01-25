@@ -44,9 +44,10 @@ bool FMCPServer::Start()
 		return false;
 	}
 
-	// Bind to port
+	// Bind to localhost only (127.0.0.1) - NOT exposed to network
 	TSharedRef<FInternetAddr> Addr = SocketSubsystem->CreateInternetAddr();
-	Addr->SetAnyAddress();
+	bool bIsValid = false;
+	Addr->SetIp(TEXT("127.0.0.1"), bIsValid);
 	Addr->SetPort(Port);
 
 	if (!ListenerSocket->Bind(*Addr))
@@ -169,6 +170,22 @@ void FMCPServer::HandleClient(FSocket* ClientSocket)
 		if (CurrentTime - LastActivityTime > ConnectionTimeout)
 		{
 			UE_LOG(LogTemp, Warning, TEXT("UEBlueprintMCP: Client connection timed out"));
+			break;
+		}
+
+		// Check if connection is still alive by trying a peek recv
+		uint8 PeekByte;
+		int32 PeekBytes = 0;
+		if (!ClientSocket->Recv(&PeekByte, 1, PeekBytes, ESocketReceiveFlags::Peek))
+		{
+			// Socket error - likely disconnected
+			UE_LOG(LogTemp, Log, TEXT("UEBlueprintMCP: Client disconnected (recv error)"));
+			break;
+		}
+		if (PeekBytes == 0)
+		{
+			// Connection closed by peer (EOF)
+			UE_LOG(LogTemp, Log, TEXT("UEBlueprintMCP: Client disconnected (EOF)"));
 			break;
 		}
 

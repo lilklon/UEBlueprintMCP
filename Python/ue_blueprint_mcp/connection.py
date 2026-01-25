@@ -30,7 +30,7 @@ class ConnectionState(Enum):
 class ConnectionConfig:
     """Configuration for the Unreal connection."""
     host: str = "127.0.0.1"
-    port: int = 55557
+    port: int = 55558  # New UEBlueprintMCP plugin port
     timeout: float = 30.0
     heartbeat_interval: float = 5.0
     max_reconnect_attempts: int = 5

@@ -90,6 +90,6 @@ private:
 	/** Map of command types to action handlers */
 	TMap<FString, TSharedRef<FEditorAction>> ActionHandlers;
 
-	/** Port to listen on */
-	static constexpr int32 DefaultPort = 55557;
+	/** Port to listen on (55558 during development to avoid conflict with old plugin) */
+	static constexpr int32 DefaultPort = 55558;
 };

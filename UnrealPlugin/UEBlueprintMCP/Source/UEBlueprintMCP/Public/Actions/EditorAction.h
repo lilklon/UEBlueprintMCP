@@ -101,6 +101,12 @@ protected:
 	/** Get optional array parameter */
 	const TArray<TSharedPtr<FJsonValue>>* GetOptionalArray(const TSharedPtr<FJsonObject>& Params, const FString& ParamName) const;
 
+	/** Get optional number parameter with default */
+	double GetOptionalNumber(const TSharedPtr<FJsonObject>& Params, const FString& ParamName, double Default = 0.0) const;
+
+	/** Get optional bool parameter with default */
+	bool GetOptionalBool(const TSharedPtr<FJsonObject>& Params, const FString& ParamName, bool Default = false) const;
+
 	/** Find Blueprint by name */
 	UBlueprint* FindBlueprint(const FString& BlueprintName, FString& OutError) const;
 

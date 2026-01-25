@@ -123,6 +123,22 @@ def get_tools() -> list[Tool]:
             }
         ),
 
+        # Spawning
+        Tool(
+            name="spawn_blueprint_actor",
+            description="Spawn an instance of a Blueprint in the level.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "blueprint_name": {"type": "string", "description": "Name of the Blueprint to spawn"},
+                    "actor_name": {"type": "string", "description": "Name for the spawned actor"},
+                    "location": {"type": "array", "items": {"type": "number"}, "description": "[x, y, z]"},
+                    "rotation": {"type": "array", "items": {"type": "number"}, "description": "[pitch, yaw, roll]"}
+                },
+                "required": ["blueprint_name", "actor_name"]
+            }
+        ),
+
         # Materials
         Tool(
             name="create_colored_material",
@@ -147,6 +163,7 @@ TOOL_HANDLERS = {
     "set_static_mesh_properties": "set_static_mesh_properties",
     "set_component_property": "set_component_property",
     "set_physics_properties": "set_physics_properties",
+    "spawn_blueprint_actor": "spawn_blueprint_actor",
     "create_colored_material": "create_colored_material",
 }
 

@@ -126,6 +126,26 @@ const TArray<TSharedPtr<FJsonValue>>* FEditorAction::GetOptionalArray(const TSha
 	return nullptr;
 }
 
+double FEditorAction::GetOptionalNumber(const TSharedPtr<FJsonObject>& Params, const FString& ParamName, double Default) const
+{
+	double Value = Default;
+	if (Params.IsValid() && Params->TryGetNumberField(ParamName, Value))
+	{
+		return Value;
+	}
+	return Default;
+}
+
+bool FEditorAction::GetOptionalBool(const TSharedPtr<FJsonObject>& Params, const FString& ParamName, bool Default) const
+{
+	bool Value = Default;
+	if (Params.IsValid() && Params->TryGetBoolField(ParamName, Value))
+	{
+		return Value;
+	}
+	return Default;
+}
+
 UBlueprint* FEditorAction::FindBlueprint(const FString& BlueprintName, FString& OutError) const
 {
 	if (BlueprintName.IsEmpty())

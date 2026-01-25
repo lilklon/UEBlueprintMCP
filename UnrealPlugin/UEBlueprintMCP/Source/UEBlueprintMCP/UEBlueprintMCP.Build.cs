@@ -33,6 +33,9 @@ public class UEBlueprintMCP : ModuleRules
 			"UMG",
 			"UMGEditor",
 			"EnhancedInput",
+			"InputBlueprintNodes",
+			"EditorScriptingUtilities",
+			"AssetTools",
 		});
 
 		// Ensure proper RTTI/exceptions for crash handling

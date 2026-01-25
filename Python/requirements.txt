@@ -1,0 +1,7 @@
+# MCP SDK
+mcp>=1.0.0
+
+# Development dependencies
+pytest>=7.0
+black>=23.0
+mypy>=1.0

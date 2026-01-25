@@ -34,6 +34,16 @@ public:
 	 */
 	TSharedPtr<FJsonObject> Execute(const TSharedPtr<FJsonObject>& Params, FMCPEditorContext& Context);
 
+	/**
+	 * Execute the action (called after validation).
+	 * Public for SEH wrapper access on Windows.
+	 *
+	 * @param Params Command parameters
+	 * @param Context Current editor context
+	 * @return JSON response
+	 */
+	virtual TSharedPtr<FJsonObject> ExecuteInternal(const TSharedPtr<FJsonObject>& Params, FMCPEditorContext& Context) = 0;
+
 protected:
 	// =========================================================================
 	// Override These in Subclasses
@@ -48,15 +58,6 @@ protected:
 	 * @return True if validation passes
 	 */
 	virtual bool Validate(const TSharedPtr<FJsonObject>& Params, FMCPEditorContext& Context, FString& OutError) = 0;
-
-	/**
-	 * Execute the action (called after validation).
-	 *
-	 * @param Params Command parameters
-	 * @param Context Current editor context
-	 * @return JSON response
-	 */
-	virtual TSharedPtr<FJsonObject> ExecuteInternal(const TSharedPtr<FJsonObject>& Params, FMCPEditorContext& Context) = 0;
 
 	/**
 	 * Post-execution validation (optional).

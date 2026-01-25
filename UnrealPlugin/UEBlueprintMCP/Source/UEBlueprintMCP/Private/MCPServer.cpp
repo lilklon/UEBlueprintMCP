@@ -174,7 +174,7 @@ void FMCPServer::HandleClient(FSocket* ClientSocket)
 
 		// Check if data is available
 		uint32 PendingDataSize = 0;
-		if (!ClientSocket->HasPendingData(PendingDataSize))
+		if (!ClientSocket->HasPendingData(PendingDataSize) || PendingDataSize == 0)
 		{
 			// No data, sleep briefly
 			FPlatformProcess::Sleep(0.01f);

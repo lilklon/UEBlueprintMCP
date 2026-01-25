@@ -25,5 +25,11 @@
 				"Linux"
 			]
 		}
+	],
+	"Plugins": [
+		{
+			"Name": "EnhancedInput",
+			"Enabled": true
+		}
 	]
 }

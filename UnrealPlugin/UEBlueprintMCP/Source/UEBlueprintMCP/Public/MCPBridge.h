@@ -81,8 +81,8 @@ private:
 	/** Execute internal command (called after validation) */
 	TSharedPtr<FJsonObject> ExecuteCommandInternal(const FString& CommandType, const TSharedPtr<FJsonObject>& Params);
 
-	/** The MCP TCP server */
-	TUniquePtr<FMCPServer> Server;
+	/** The MCP TCP server (raw pointer - cleanup in Deinitialize) */
+	FMCPServer* Server;
 
 	/** Editor context (persists across commands) */
 	FMCPEditorContext Context;

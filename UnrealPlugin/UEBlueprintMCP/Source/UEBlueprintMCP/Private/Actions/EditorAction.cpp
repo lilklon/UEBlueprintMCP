@@ -8,6 +8,9 @@
 #include "Kismet2/KismetEditorUtilities.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 
+// NOTE: SEH crash protection is deferred to Phase 2
+// For now, using defensive programming (validation before execution)
+
 // ============================================================================
 // FEditorAction Implementation
 // ============================================================================
@@ -50,21 +53,9 @@ TSharedPtr<FJsonObject> FEditorAction::Execute(const TSharedPtr<FJsonObject>& Pa
 
 TSharedPtr<FJsonObject> FEditorAction::ExecuteWithCrashProtection(const TSharedPtr<FJsonObject>& Params, FMCPEditorContext& Context)
 {
-#if PLATFORM_WINDOWS
-	__try
-	{
-		return ExecuteInternal(Params, Context);
-	}
-	__except (EXCEPTION_EXECUTE_HANDLER)
-	{
-		UE_LOG(LogTemp, Error, TEXT("UEBlueprintMCP: CRASH PREVENTED in action '%s'"), *GetActionName());
-		return nullptr;
-	}
-#else
-	// On non-Windows platforms, execute directly
-	// Signal handlers for SIGSEGV could be added here
+	// TODO Phase 2: Add SEH crash protection here
+	// For now, rely on defensive programming (validation before execution)
 	return ExecuteInternal(Params, Context);
-#endif
 }
 
 TSharedPtr<FJsonObject> FEditorAction::CreateSuccessResponse(const TSharedPtr<FJsonObject>& ResultData) const
@@ -126,7 +117,11 @@ const TArray<TSharedPtr<FJsonValue>>* FEditorAction::GetOptionalArray(const TSha
 {
 	if (Params.IsValid())
 	{
-		return Params->TryGetArrayField(ParamName);
+		const TArray<TSharedPtr<FJsonValue>>* OutArray = nullptr;
+		if (Params->TryGetArrayField(ParamName, OutArray))
+		{
+			return OutArray;
+		}
 	}
 	return nullptr;
 }

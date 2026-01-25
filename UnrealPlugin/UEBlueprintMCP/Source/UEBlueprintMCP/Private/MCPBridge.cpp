@@ -4,7 +4,11 @@
 #include "MCPServer.h"
 #include "Actions/EditorAction.h"
 
+// NOTE: SEH crash protection is deferred to Phase 2
+// For now, using defensive programming (validation before execution)
+
 UMCPBridge::UMCPBridge()
+	: Server(nullptr)
 {
 }
 
@@ -18,7 +22,7 @@ void UMCPBridge::Initialize(FSubsystemCollectionBase& Collection)
 	RegisterActions();
 
 	// Start the TCP server
-	Server = MakeUnique<FMCPServer>(this, DefaultPort);
+	Server = new FMCPServer(this, DefaultPort);
 	if (Server->Start())
 	{
 		UE_LOG(LogTemp, Log, TEXT("UEBlueprintMCP: Server started on port %d"), DefaultPort);
@@ -37,7 +41,8 @@ void UMCPBridge::Deinitialize()
 	if (Server)
 	{
 		Server->Stop();
-		Server.Reset();
+		delete Server;
+		Server = nullptr;
 	}
 
 	// Clear action handlers
@@ -80,25 +85,9 @@ TSharedPtr<FJsonObject> UMCPBridge::ExecuteCommand(const FString& CommandType, c
 
 TSharedPtr<FJsonObject> UMCPBridge::ExecuteCommandSafe(const FString& CommandType, const TSharedPtr<FJsonObject>& Params)
 {
-	// Platform-specific crash protection
-#if PLATFORM_WINDOWS
-	__try
-	{
-		return ExecuteCommandInternal(CommandType, Params);
-	}
-	__except (EXCEPTION_EXECUTE_HANDLER)
-	{
-		UE_LOG(LogTemp, Error, TEXT("UEBlueprintMCP: CRASH PREVENTED in command '%s'"), *CommandType);
-		return CreateErrorResponse(
-			FString::Printf(TEXT("CRASH PREVENTED: Access violation in command '%s'. Operation aborted safely."), *CommandType),
-			TEXT("crash_prevented")
-		);
-	}
-#else
-	// On non-Windows platforms, just execute directly
-	// TODO: Add signal handler for SIGSEGV on Mac/Linux
+	// TODO Phase 2: Add SEH crash protection here
+	// For now, rely on defensive programming (validation in actions)
 	return ExecuteCommandInternal(CommandType, Params);
-#endif
 }
 
 TSharedPtr<FJsonObject> UMCPBridge::ExecuteCommandInternal(const FString& CommandType, const TSharedPtr<FJsonObject>& Params)

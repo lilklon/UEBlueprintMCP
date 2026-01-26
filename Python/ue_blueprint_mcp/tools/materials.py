@@ -145,6 +145,25 @@ def get_tools() -> list[Tool]:
             }
         ),
         Tool(
+            name="set_material_property",
+            description="Set a property on a Material asset (ShadingModel, TwoSided, BlendMode, etc.).",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "material_name": {"type": "string", "description": "Name of the Material"},
+                    "property_name": {
+                        "type": "string",
+                        "description": "Property to set (ShadingModel, TwoSided, BlendMode, DitheredLODTransition, AllowNegativeEmissiveColor, OpacityMaskClipValue)"
+                    },
+                    "property_value": {
+                        "type": "string",
+                        "description": "Value to set (e.g., 'Unlit', 'true', 'Masked', '0.5')"
+                    }
+                },
+                "required": ["material_name", "property_name", "property_value"]
+            }
+        ),
+        Tool(
             name="create_post_process_volume",
             description="Create a Post Process Volume actor in the level.",
             inputSchema={
@@ -177,6 +196,7 @@ TOOL_HANDLERS = {
     "connect_material_expressions": "connect_material_expressions",
     "connect_to_material_output": "connect_to_material_output",
     "set_material_expression_property": "set_material_expression_property",
+    "set_material_property": "set_material_property",
     "compile_material": "compile_material",
     "create_material_instance": "create_material_instance",
     "create_post_process_volume": "create_post_process_volume",

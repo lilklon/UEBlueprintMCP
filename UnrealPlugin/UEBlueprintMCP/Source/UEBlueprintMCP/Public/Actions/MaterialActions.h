@@ -46,6 +46,7 @@ protected:
  *   - path (optional): Content path (default: /Game/Materials)
  *   - domain (optional): Material domain (Surface, PostProcess, DeferredDecal, LightFunction, UI)
  *   - blend_mode (optional): Blend mode (Opaque, Masked, Translucent, Additive, Modulate)
+ *   - blendable_location (optional): For PostProcess materials (BeforeTonemapping, AfterTonemapping, BeforeTranslucency, ReplacingTonemapper)
  *
  * Returns:
  *   - name: Created material name
@@ -68,6 +69,9 @@ private:
 
 	/** Resolve blend mode enum from string */
 	TOptional<EBlendMode> ResolveBlendMode(const FString& BlendModeString) const;
+
+	/** Resolve blendable location enum from string */
+	TOptional<EBlendableLocation> ResolveBlendableLocation(const FString& LocationString) const;
 };
 
 
@@ -248,6 +252,44 @@ public:
 protected:
 	virtual bool Validate(const TSharedPtr<FJsonObject>& Params, FMCPEditorContext& Context, FString& OutError) override;
 	virtual FString GetActionName() const override { return TEXT("create_material_instance"); }
+};
+
+
+/**
+ * FSetMaterialPropertyAction
+ *
+ * Sets a property on a Material asset (not expression nodes).
+ * Use this for material-level properties like ShadingModel, TwoSided, BlendMode, etc.
+ *
+ * Parameters:
+ *   - material_name (required): Name of the Material
+ *   - property_name (required): Property to set (ShadingModel, TwoSided, BlendMode, etc.)
+ *   - property_value (required): Value to set (as string, will be parsed)
+ *
+ * Supported Properties:
+ *   - ShadingModel: Unlit, DefaultLit, Subsurface, PreintegratedSkin, ClearCoat, SubsurfaceProfile, TwoSidedFoliage, Hair, Cloth, Eye
+ *   - TwoSided: true/false
+ *   - BlendMode: Opaque, Masked, Translucent, Additive, Modulate
+ *   - DitheredLODTransition: true/false
+ *   - AllowNegativeEmissiveColor: true/false
+ *   - OpacityMaskClipValue: float (0.0-1.0)
+ *
+ * Returns:
+ *   - material_name: Material name
+ *   - property_name: Property that was set
+ */
+class UEBLUEPRINTMCP_API FSetMaterialPropertyAction : public FMaterialAction
+{
+public:
+	virtual TSharedPtr<FJsonObject> ExecuteInternal(const TSharedPtr<FJsonObject>& Params, FMCPEditorContext& Context) override;
+
+protected:
+	virtual bool Validate(const TSharedPtr<FJsonObject>& Params, FMCPEditorContext& Context, FString& OutError) override;
+	virtual FString GetActionName() const override { return TEXT("set_material_property"); }
+
+private:
+	/** Resolve shading model enum from string */
+	TOptional<EMaterialShadingModel> ResolveShadingModel(const FString& ShadingModelString) const;
 };
 
 

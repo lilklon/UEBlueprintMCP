@@ -79,14 +79,15 @@ def get_tools() -> list[Tool]:
         ),
         Tool(
             name="set_static_mesh_properties",
-            description="Set static mesh and material on a StaticMeshComponent.",
+            description="Set static mesh, material, and overlay material on a StaticMeshComponent.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "blueprint_name": {"type": "string", "description": "Name of the Blueprint"},
                     "component_name": {"type": "string", "description": "Name of the component"},
                     "static_mesh": {"type": "string", "description": "Path to static mesh asset"},
-                    "material": {"type": "string", "description": "Path to material asset"}
+                    "material": {"type": "string", "description": "Path to material asset"},
+                    "overlay_material": {"type": "string", "description": "Path to overlay material (for outline effects)"}
                 },
                 "required": ["blueprint_name", "component_name"]
             }

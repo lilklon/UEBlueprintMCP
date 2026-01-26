@@ -182,13 +182,14 @@ protected:
 /**
  * FSetStaticMeshPropertiesAction
  *
- * Sets mesh and material on a StaticMeshComponent.
+ * Sets mesh, material, and overlay material on a StaticMeshComponent.
  *
  * Parameters:
  *   - blueprint_name (required): Name of the Blueprint
  *   - component_name (required): Name of the StaticMeshComponent
  *   - static_mesh (optional): Path to static mesh asset
  *   - material (optional): Path to material asset
+ *   - overlay_material (optional): Path to overlay material asset (for outline effects, etc.)
  *
  * Returns:
  *   - component: Component name

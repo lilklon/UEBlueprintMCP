@@ -814,6 +814,17 @@ TSharedPtr<FJsonObject> FSetStaticMeshPropertiesAction::ExecuteInternal(const TS
 		}
 	}
 
+	// Set overlay material
+	FString OverlayMaterialPath = GetOptionalString(Params, TEXT("overlay_material"), TEXT(""));
+	if (!OverlayMaterialPath.IsEmpty())
+	{
+		UMaterialInterface* OverlayMaterial = Cast<UMaterialInterface>(UEditorAssetLibrary::LoadAsset(OverlayMaterialPath));
+		if (OverlayMaterial)
+		{
+			MeshComponent->SetOverlayMaterial(OverlayMaterial);
+		}
+	}
+
 	FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
 	Context.MarkPackageDirty(Blueprint->GetOutermost());
 

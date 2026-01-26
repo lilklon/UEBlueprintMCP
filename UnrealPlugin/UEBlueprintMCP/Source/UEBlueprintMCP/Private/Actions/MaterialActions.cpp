@@ -79,6 +79,55 @@
 // =========================================================================
 
 static TMap<FString, UClass*> ExpressionClassMap;
+static TMap<FString, EMaterialShadingModel> ShadingModelMap;
+static TMap<FString, EBlendMode> BlendModeMap;
+
+static void InitShadingModelMap()
+{
+	if (ShadingModelMap.Num() > 0) return;
+
+	ShadingModelMap.Add(TEXT("Unlit"), MSM_Unlit);
+	ShadingModelMap.Add(TEXT("MSM_Unlit"), MSM_Unlit);
+	ShadingModelMap.Add(TEXT("DefaultLit"), MSM_DefaultLit);
+	ShadingModelMap.Add(TEXT("MSM_DefaultLit"), MSM_DefaultLit);
+	ShadingModelMap.Add(TEXT("Lit"), MSM_DefaultLit);
+	ShadingModelMap.Add(TEXT("Subsurface"), MSM_Subsurface);
+	ShadingModelMap.Add(TEXT("MSM_Subsurface"), MSM_Subsurface);
+	ShadingModelMap.Add(TEXT("PreintegratedSkin"), MSM_PreintegratedSkin);
+	ShadingModelMap.Add(TEXT("MSM_PreintegratedSkin"), MSM_PreintegratedSkin);
+	ShadingModelMap.Add(TEXT("ClearCoat"), MSM_ClearCoat);
+	ShadingModelMap.Add(TEXT("MSM_ClearCoat"), MSM_ClearCoat);
+	ShadingModelMap.Add(TEXT("SubsurfaceProfile"), MSM_SubsurfaceProfile);
+	ShadingModelMap.Add(TEXT("MSM_SubsurfaceProfile"), MSM_SubsurfaceProfile);
+	ShadingModelMap.Add(TEXT("TwoSidedFoliage"), MSM_TwoSidedFoliage);
+	ShadingModelMap.Add(TEXT("MSM_TwoSidedFoliage"), MSM_TwoSidedFoliage);
+	ShadingModelMap.Add(TEXT("Hair"), MSM_Hair);
+	ShadingModelMap.Add(TEXT("MSM_Hair"), MSM_Hair);
+	ShadingModelMap.Add(TEXT("Cloth"), MSM_Cloth);
+	ShadingModelMap.Add(TEXT("MSM_Cloth"), MSM_Cloth);
+	ShadingModelMap.Add(TEXT("Eye"), MSM_Eye);
+	ShadingModelMap.Add(TEXT("MSM_Eye"), MSM_Eye);
+}
+
+static void InitBlendModeMap()
+{
+	if (BlendModeMap.Num() > 0) return;
+
+	BlendModeMap.Add(TEXT("Opaque"), BLEND_Opaque);
+	BlendModeMap.Add(TEXT("BLEND_Opaque"), BLEND_Opaque);
+	BlendModeMap.Add(TEXT("Masked"), BLEND_Masked);
+	BlendModeMap.Add(TEXT("BLEND_Masked"), BLEND_Masked);
+	BlendModeMap.Add(TEXT("Translucent"), BLEND_Translucent);
+	BlendModeMap.Add(TEXT("BLEND_Translucent"), BLEND_Translucent);
+	BlendModeMap.Add(TEXT("Additive"), BLEND_Additive);
+	BlendModeMap.Add(TEXT("BLEND_Additive"), BLEND_Additive);
+	BlendModeMap.Add(TEXT("Modulate"), BLEND_Modulate);
+	BlendModeMap.Add(TEXT("BLEND_Modulate"), BLEND_Modulate);
+	BlendModeMap.Add(TEXT("AlphaComposite"), BLEND_AlphaComposite);
+	BlendModeMap.Add(TEXT("BLEND_AlphaComposite"), BLEND_AlphaComposite);
+	BlendModeMap.Add(TEXT("AlphaHoldout"), BLEND_AlphaHoldout);
+	BlendModeMap.Add(TEXT("BLEND_AlphaHoldout"), BLEND_AlphaHoldout);
+}
 
 static void InitExpressionClassMap()
 {
@@ -295,6 +344,27 @@ TOptional<EBlendMode> FCreateMaterialAction::ResolveBlendMode(const FString& Ble
 	return TOptional<EBlendMode>();
 }
 
+TOptional<EBlendableLocation> FCreateMaterialAction::ResolveBlendableLocation(const FString& LocationString) const
+{
+	if (LocationString.IsEmpty() || LocationString.Equals(TEXT("AfterTonemapping"), ESearchCase::IgnoreCase) ||
+		LocationString.Equals(TEXT("BL_AfterTonemapping"), ESearchCase::IgnoreCase))
+		return BL_AfterTonemapping;
+	if (LocationString.Equals(TEXT("BeforeTonemapping"), ESearchCase::IgnoreCase) ||
+		LocationString.Equals(TEXT("BL_BeforeTonemapping"), ESearchCase::IgnoreCase))
+		return BL_BeforeTonemapping;
+	if (LocationString.Equals(TEXT("BeforeTranslucency"), ESearchCase::IgnoreCase) ||
+		LocationString.Equals(TEXT("BL_BeforeTranslucency"), ESearchCase::IgnoreCase))
+		return BL_BeforeTranslucency;
+	if (LocationString.Equals(TEXT("ReplacingTonemapper"), ESearchCase::IgnoreCase) ||
+		LocationString.Equals(TEXT("BL_ReplacingTonemapper"), ESearchCase::IgnoreCase))
+		return BL_ReplacingTonemapper;
+	if (LocationString.Equals(TEXT("SSRInput"), ESearchCase::IgnoreCase) ||
+		LocationString.Equals(TEXT("BL_SSRInput"), ESearchCase::IgnoreCase))
+		return BL_SSRInput;
+
+	return TOptional<EBlendableLocation>();
+}
+
 TSharedPtr<FJsonObject> FCreateMaterialAction::ExecuteInternal(const TSharedPtr<FJsonObject>& Params, FMCPEditorContext& Context)
 {
 	FString Error;
@@ -304,6 +374,7 @@ TSharedPtr<FJsonObject> FCreateMaterialAction::ExecuteInternal(const TSharedPtr<
 	FString Path = GetOptionalString(Params, TEXT("path"), TEXT("/Game/Materials"));
 	FString DomainStr = GetOptionalString(Params, TEXT("domain"), TEXT("Surface"));
 	FString BlendModeStr = GetOptionalString(Params, TEXT("blend_mode"), TEXT("Opaque"));
+	FString BlendableLocationStr = GetOptionalString(Params, TEXT("blendable_location"), TEXT(""));
 
 	// Resolve domain
 	TOptional<EMaterialDomain> Domain = ResolveDomain(DomainStr);
@@ -352,8 +423,20 @@ TSharedPtr<FJsonObject> FCreateMaterialAction::ExecuteInternal(const TSharedPtr<
 	NewMaterial->MaterialDomain = Domain.GetValue();
 	NewMaterial->BlendMode = BlendMode.GetValue();
 
-	// For post-process materials, domain setting is sufficient in UE5.7+
-	// Additional usage flags are automatically set based on domain
+	// Set blendable location for post-process materials
+	if (!BlendableLocationStr.IsEmpty())
+	{
+		TOptional<EBlendableLocation> BlendableLocation = ResolveBlendableLocation(BlendableLocationStr);
+		if (BlendableLocation.IsSet())
+		{
+			NewMaterial->BlendableLocation = BlendableLocation.GetValue();
+		}
+	}
+	else if (Domain.GetValue() == MD_PostProcess)
+	{
+		// Default to BeforeTonemapping for post-process materials (needed for depth access)
+		NewMaterial->BlendableLocation = BL_BeforeTonemapping;
+	}
 
 	// Trigger compilation
 	NewMaterial->PreEditChange(nullptr);
@@ -706,6 +789,48 @@ bool FConnectMaterialExpressionsAction::ConnectToExpressionInput(UMaterialExpres
 	else if (UMaterialExpressionAbs* Abs = Cast<UMaterialExpressionAbs>(TargetExpr))
 	{
 		if (InputName.Equals(TEXT("Input"), ESearchCase::IgnoreCase)) { Abs->Input.Expression = SourceExpr; Abs->Input.OutputIndex = OutputIndex; return true; }
+	}
+	// SceneDepth
+	else if (UMaterialExpressionSceneDepth* SceneDepth = Cast<UMaterialExpressionSceneDepth>(TargetExpr))
+	{
+		if (InputName.Equals(TEXT("Input"), ESearchCase::IgnoreCase) || InputName.Equals(TEXT("UV"), ESearchCase::IgnoreCase) || InputName.Equals(TEXT("Coordinates"), ESearchCase::IgnoreCase))
+		{
+			SceneDepth->Input.Expression = SourceExpr;
+			SceneDepth->Input.OutputIndex = OutputIndex;
+			return true;
+		}
+	}
+	// SceneTexture
+	else if (UMaterialExpressionSceneTexture* SceneTexture = Cast<UMaterialExpressionSceneTexture>(TargetExpr))
+	{
+		if (InputName.Equals(TEXT("UV"), ESearchCase::IgnoreCase) || InputName.Equals(TEXT("Coordinates"), ESearchCase::IgnoreCase))
+		{
+			SceneTexture->Coordinates.Expression = SourceExpr;
+			SceneTexture->Coordinates.OutputIndex = OutputIndex;
+			return true;
+		}
+	}
+	// DDX
+	else if (UMaterialExpressionDDX* DDX = Cast<UMaterialExpressionDDX>(TargetExpr))
+	{
+		if (InputName.Equals(TEXT("Value"), ESearchCase::IgnoreCase) || InputName.Equals(TEXT("Input"), ESearchCase::IgnoreCase))
+		{ DDX->Value.Expression = SourceExpr; DDX->Value.OutputIndex = OutputIndex; return true; }
+	}
+	// DDY
+	else if (UMaterialExpressionDDY* DDY = Cast<UMaterialExpressionDDY>(TargetExpr))
+	{
+		if (InputName.Equals(TEXT("Value"), ESearchCase::IgnoreCase) || InputName.Equals(TEXT("Input"), ESearchCase::IgnoreCase))
+		{ DDY->Value.Expression = SourceExpr; DDY->Value.OutputIndex = OutputIndex; return true; }
+	}
+	// Saturate
+	else if (UMaterialExpressionSaturate* Saturate = Cast<UMaterialExpressionSaturate>(TargetExpr))
+	{
+		if (InputName.Equals(TEXT("Input"), ESearchCase::IgnoreCase)) { Saturate->Input.Expression = SourceExpr; Saturate->Input.OutputIndex = OutputIndex; return true; }
+	}
+	// OneMinus
+	else if (UMaterialExpressionOneMinus* OneMinus = Cast<UMaterialExpressionOneMinus>(TargetExpr))
+	{
+		if (InputName.Equals(TEXT("Input"), ESearchCase::IgnoreCase)) { OneMinus->Input.Expression = SourceExpr; OneMinus->Input.OutputIndex = OutputIndex; return true; }
 	}
 	// Custom (inputs array)
 	else if (UMaterialExpressionCustom* Custom = Cast<UMaterialExpressionCustom>(TargetExpr))
@@ -1202,6 +1327,127 @@ TSharedPtr<FJsonObject> FCreateMaterialInstanceAction::ExecuteInternal(const TSh
 }
 
 // =========================================================================
+// FSetMaterialPropertyAction
+// =========================================================================
+
+bool FSetMaterialPropertyAction::Validate(const TSharedPtr<FJsonObject>& Params, FMCPEditorContext& Context, FString& OutError)
+{
+	FString MaterialName, PropertyName, PropertyValue;
+	if (!GetRequiredString(Params, TEXT("material_name"), MaterialName, OutError)) return false;
+	if (!GetRequiredString(Params, TEXT("property_name"), PropertyName, OutError)) return false;
+	if (!GetRequiredString(Params, TEXT("property_value"), PropertyValue, OutError)) return false;
+	return true;
+}
+
+TOptional<EMaterialShadingModel> FSetMaterialPropertyAction::ResolveShadingModel(const FString& ShadingModelString) const
+{
+	InitShadingModelMap();
+	if (EMaterialShadingModel* Found = ShadingModelMap.Find(ShadingModelString))
+	{
+		return *Found;
+	}
+	return TOptional<EMaterialShadingModel>();
+}
+
+TSharedPtr<FJsonObject> FSetMaterialPropertyAction::ExecuteInternal(const TSharedPtr<FJsonObject>& Params, FMCPEditorContext& Context)
+{
+	FString Error;
+	FString MaterialName, PropertyName, PropertyValue;
+	GetRequiredString(Params, TEXT("material_name"), MaterialName, Error);
+	GetRequiredString(Params, TEXT("property_name"), PropertyName, Error);
+	GetRequiredString(Params, TEXT("property_value"), PropertyValue, Error);
+
+	// Find material
+	UMaterial* Material = FindMaterial(MaterialName, Error);
+	if (!Material)
+	{
+		return CreateErrorResponse(Error, TEXT("material_not_found"));
+	}
+
+	// Property handlers map (property name -> handler lambda)
+	using FPropertyHandler = TFunction<bool(UMaterial*, const FString&, FString&)>;
+	static TMap<FString, FPropertyHandler> PropertyHandlers;
+
+	if (PropertyHandlers.Num() == 0)
+	{
+		PropertyHandlers.Add(TEXT("ShadingModel"), [this](UMaterial* Mat, const FString& Value, FString& OutErr) -> bool
+		{
+			TOptional<EMaterialShadingModel> Model = ResolveShadingModel(Value);
+			if (!Model.IsSet())
+			{
+				OutErr = FString::Printf(TEXT("Invalid ShadingModel '%s'. Valid: Unlit, DefaultLit, Subsurface, PreintegratedSkin, ClearCoat, SubsurfaceProfile, TwoSidedFoliage, Hair, Cloth, Eye"), *Value);
+				return false;
+			}
+			Mat->SetShadingModel(Model.GetValue());
+			return true;
+		});
+
+		PropertyHandlers.Add(TEXT("TwoSided"), [](UMaterial* Mat, const FString& Value, FString& OutErr) -> bool
+		{
+			Mat->TwoSided = Value.ToBool() || Value.Equals(TEXT("true"), ESearchCase::IgnoreCase) || Value == TEXT("1");
+			return true;
+		});
+
+		PropertyHandlers.Add(TEXT("BlendMode"), [](UMaterial* Mat, const FString& Value, FString& OutErr) -> bool
+		{
+			InitBlendModeMap();
+			if (EBlendMode* Found = BlendModeMap.Find(Value))
+			{
+				Mat->BlendMode = *Found;
+				return true;
+			}
+			OutErr = FString::Printf(TEXT("Invalid BlendMode '%s'. Valid: Opaque, Masked, Translucent, Additive, Modulate, AlphaComposite, AlphaHoldout"), *Value);
+			return false;
+		});
+
+		PropertyHandlers.Add(TEXT("DitheredLODTransition"), [](UMaterial* Mat, const FString& Value, FString& OutErr) -> bool
+		{
+			Mat->DitheredLODTransition = Value.ToBool() || Value.Equals(TEXT("true"), ESearchCase::IgnoreCase) || Value == TEXT("1");
+			return true;
+		});
+
+		PropertyHandlers.Add(TEXT("AllowNegativeEmissiveColor"), [](UMaterial* Mat, const FString& Value, FString& OutErr) -> bool
+		{
+			Mat->bAllowNegativeEmissiveColor = Value.ToBool() || Value.Equals(TEXT("true"), ESearchCase::IgnoreCase) || Value == TEXT("1");
+			return true;
+		});
+
+		PropertyHandlers.Add(TEXT("OpacityMaskClipValue"), [](UMaterial* Mat, const FString& Value, FString& OutErr) -> bool
+		{
+			Mat->OpacityMaskClipValue = FCString::Atof(*Value);
+			return true;
+		});
+	}
+
+	// Find and execute the property handler
+	FPropertyHandler* Handler = PropertyHandlers.Find(PropertyName);
+	if (!Handler)
+	{
+		return CreateErrorResponse(
+			FString::Printf(TEXT("Unknown material property '%s'. Supported: ShadingModel, TwoSided, BlendMode, DitheredLODTransition, AllowNegativeEmissiveColor, OpacityMaskClipValue"), *PropertyName),
+			TEXT("unknown_property"));
+	}
+
+	FString HandlerError;
+	if (!(*Handler)(Material, PropertyValue, HandlerError))
+	{
+		return CreateErrorResponse(HandlerError, TEXT("property_set_failed"));
+	}
+
+	// Mark material as modified and trigger recompilation
+	MarkMaterialModified(Material, Context);
+
+	// Build response
+	TSharedPtr<FJsonObject> Result = MakeShared<FJsonObject>();
+	Result->SetStringField(TEXT("material_name"), MaterialName);
+	Result->SetStringField(TEXT("property_name"), PropertyName);
+	Result->SetStringField(TEXT("property_value"), PropertyValue);
+
+	return CreateSuccessResponse(Result);
+}
+
+
+// =========================================================================
 // FCreatePostProcessVolumeAction
 // =========================================================================
 
@@ -1241,12 +1487,16 @@ TSharedPtr<FJsonObject> FCreatePostProcessVolumeAction::ExecuteInternal(const TS
 		return CreateErrorResponse(TEXT("No world available"), TEXT("no_world"));
 	}
 
-	// Delete existing actor with same name
-	for (TActorIterator<APostProcessVolume> It(World); It; ++It)
+	// Find and delete existing actor with same name using safe method
+	TArray<AActor*> AllPPVs;
+	UGameplayStatics::GetAllActorsOfClass(World, APostProcessVolume::StaticClass(), AllPPVs);
+	for (AActor* Actor : AllPPVs)
 	{
-		if (It->GetActorLabel() == ActorName || It->GetName() == ActorName)
+		if (Actor && (Actor->GetActorLabel() == ActorName || Actor->GetName() == ActorName))
 		{
-			World->DestroyActor(*It);
+			// Deselect before destroying to avoid editor issues
+			GEditor->SelectNone(true, true);
+			World->DestroyActor(Actor);
 			break;
 		}
 	}
@@ -1254,6 +1504,7 @@ TSharedPtr<FJsonObject> FCreatePostProcessVolumeAction::ExecuteInternal(const TS
 	// Spawn post process volume
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.Name = FName(*ActorName);
+	SpawnParams.NameMode = FActorSpawnParameters::ESpawnActorNameMode::Requested;
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
 	APostProcessVolume* Volume = World->SpawnActor<APostProcessVolume>(Location, FRotator::ZeroRotator, SpawnParams);

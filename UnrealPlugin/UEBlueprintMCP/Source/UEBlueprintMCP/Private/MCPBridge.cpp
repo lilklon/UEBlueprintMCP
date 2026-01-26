@@ -167,6 +167,7 @@ void UMCPBridge::RegisterActions()
 	// Material Actions (Materials, Shaders, Post-Process)
 	// =========================================================================
 	ActionHandlers.Add(TEXT("create_material"), MakeShared<FCreateMaterialAction>());
+	ActionHandlers.Add(TEXT("set_material_property"), MakeShared<FSetMaterialPropertyAction>());
 	ActionHandlers.Add(TEXT("add_material_expression"), MakeShared<FAddMaterialExpressionAction>());
 	ActionHandlers.Add(TEXT("connect_material_expressions"), MakeShared<FConnectMaterialExpressionsAction>());
 	ActionHandlers.Add(TEXT("connect_to_material_output"), MakeShared<FConnectToMaterialOutputAction>());

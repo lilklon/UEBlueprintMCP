@@ -1,6 +1,7 @@
 // Copyright (c) 2025 zolnoor. All rights reserved.
 
 #include "MCPContext.h"
+#include "MCPCommonUtils.h"
 #include "Engine/Blueprint.h"
 #include "EdGraph/EdGraph.h"
 #include "Kismet2/BlueprintEditorUtils.h"
@@ -87,20 +88,28 @@ void FMCPEditorContext::MarkPackageDirty(UPackage* Package)
 
 void FMCPEditorContext::SaveDirtyPackages()
 {
+	// Save the whole project
+	bool bSaved = FEditorFileUtils::SaveDirtyPackages(false, true, true, false, false, false);
+
+	// Verify no dirty packages remain
+	TArray<UPackage*> StillDirty;
 	for (UPackage* Package : DirtyPackages)
 	{
 		if (Package && Package->IsDirty())
 		{
-			FString PackageFilename;
-			if (FPackageName::TryConvertLongPackageNameToFilename(Package->GetName(), PackageFilename, FPackageName::GetAssetPackageExtension()))
-			{
-				FSavePackageArgs SaveArgs;
-				SaveArgs.TopLevelFlags = RF_Public | RF_Standalone;
-				SaveArgs.Error = GError;
-				UPackage::SavePackage(Package, nullptr, *PackageFilename, SaveArgs);
-			}
+			StillDirty.Add(Package);
 		}
 	}
+
+	if (StillDirty.Num() > 0)
+	{
+		UE_LOG(LogTemp, Error, TEXT("UEBlueprintMCP: SaveDirtyPackages failed! %d packages still dirty after save:"), StillDirty.Num());
+		for (UPackage* Package : StillDirty)
+		{
+			UE_LOG(LogTemp, Error, TEXT("  - %s"), *Package->GetName());
+		}
+	}
+
 	DirtyPackages.Empty();
 }
 
@@ -266,28 +275,11 @@ TSharedPtr<FJsonObject> FMCPEditorContext::ToJson() const
 
 UBlueprint* FMCPEditorContext::GetBlueprintByNameOrCurrent(const FString& BlueprintName) const
 {
-	// If name is empty, use current
 	if (BlueprintName.IsEmpty())
 	{
 		return CurrentBlueprint.Get();
 	}
-
-	// Search for Blueprint by name
-	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
-	IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
-
-	TArray<FAssetData> AssetList;
-	AssetRegistry.GetAssetsByClass(UBlueprint::StaticClass()->GetClassPathName(), AssetList);
-
-	for (const FAssetData& AssetData : AssetList)
-	{
-		if (AssetData.AssetName.ToString() == BlueprintName)
-		{
-			return Cast<UBlueprint>(AssetData.GetAsset());
-		}
-	}
-
-	return nullptr;
+	return FMCPCommonUtils::FindBlueprint(BlueprintName);
 }
 
 UEdGraph* FMCPEditorContext::GetGraphByNameOrCurrent(const FString& GraphName) const

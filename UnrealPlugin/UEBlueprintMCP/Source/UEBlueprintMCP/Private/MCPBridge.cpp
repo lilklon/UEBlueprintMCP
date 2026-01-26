@@ -146,6 +146,16 @@ void UMCPBridge::RegisterActions()
 	ActionHandlers.Add(TEXT("call_blueprint_function"), MakeShared<FCallBlueprintFunctionAction>());
 
 	// =========================================================================
+	// Node Actions - External Object Property Nodes
+	// =========================================================================
+	ActionHandlers.Add(TEXT("set_object_property"), MakeShared<FSetObjectPropertyAction>());
+
+	// =========================================================================
+	// Node Actions - Macro Instance Nodes
+	// =========================================================================
+	ActionHandlers.Add(TEXT("add_macro_instance_node"), MakeShared<FAddMacroInstanceNodeAction>());
+
+	// =========================================================================
 	// Project Actions (Input Mappings, Enhanced Input)
 	// =========================================================================
 	ActionHandlers.Add(TEXT("create_input_mapping"), MakeShared<FCreateInputMappingAction>());

@@ -25,6 +25,7 @@
 #include "K2Node_SpawnActorFromClass.h"
 #include "K2Node_EnhancedInputAction.h"
 #include "K2Node_GetSubsystem.h"
+#include "K2Node_MacroInstance.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "Kismet2/KismetEditorUtilities.h"
 #include "Kismet/GameplayStatics.h"
@@ -348,7 +349,7 @@ TSharedPtr<FJsonObject> FAddBlueprintEventNodeAction::ExecuteInternal(const TSha
 	FVector2D Position = GetNodePosition(Params);
 
 	UBlueprint* Blueprint = GetTargetBlueprint(Params, Context);
-	UEdGraph* EventGraph = FMCPCommonUtils::FindOrCreateEventGraph(Blueprint);
+	UEdGraph* EventGraph = GetTargetGraph(Params, Context);
 
 	UK2Node_Event* EventNode = FMCPCommonUtils::CreateEventNode(EventGraph, EventName, Position);
 	if (!EventNode)
@@ -447,7 +448,7 @@ TSharedPtr<FJsonObject> FAddBlueprintCustomEventAction::ExecuteInternal(const TS
 	FVector2D Position = GetNodePosition(Params);
 
 	UBlueprint* Blueprint = GetTargetBlueprint(Params, Context);
-	UEdGraph* EventGraph = FMCPCommonUtils::FindOrCreateEventGraph(Blueprint);
+	UEdGraph* EventGraph = GetTargetGraph(Params, Context);
 
 	// Create Custom Event node using editor's spawn API
 	UK2Node_CustomEvent* CustomEventNode = FEdGraphSchemaAction_K2NewNode::SpawnNode<UK2Node_CustomEvent>(
@@ -1380,7 +1381,7 @@ bool FCallEventDispatcherAction::Validate(const TSharedPtr<FJsonObject>& Params,
 {
 	FString DispatcherName;
 	if (!GetRequiredString(Params, TEXT("dispatcher_name"), DispatcherName, OutError)) return false;
-	return ValidateBlueprint(Params, Context, OutError);
+	return ValidateGraph(Params, Context, OutError);
 }
 
 TSharedPtr<FJsonObject> FCallEventDispatcherAction::ExecuteInternal(const TSharedPtr<FJsonObject>& Params, FMCPEditorContext& Context)
@@ -1389,7 +1390,7 @@ TSharedPtr<FJsonObject> FCallEventDispatcherAction::ExecuteInternal(const TShare
 	FVector2D Position = GetNodePosition(Params);
 
 	UBlueprint* Blueprint = GetTargetBlueprint(Params, Context);
-	UEdGraph* EventGraph = FMCPCommonUtils::FindOrCreateEventGraph(Blueprint);
+	UEdGraph* EventGraph = GetTargetGraph(Params, Context);
 
 	// Find the delegate property
 	FMulticastDelegateProperty* DelegateProp = FindFProperty<FMulticastDelegateProperty>(
@@ -1420,7 +1421,7 @@ bool FBindEventDispatcherAction::Validate(const TSharedPtr<FJsonObject>& Params,
 {
 	FString DispatcherName;
 	if (!GetRequiredString(Params, TEXT("dispatcher_name"), DispatcherName, OutError)) return false;
-	return ValidateBlueprint(Params, Context, OutError);
+	return ValidateGraph(Params, Context, OutError);
 }
 
 TSharedPtr<FJsonObject> FBindEventDispatcherAction::ExecuteInternal(const TSharedPtr<FJsonObject>& Params, FMCPEditorContext& Context)
@@ -1442,7 +1443,7 @@ TSharedPtr<FJsonObject> FBindEventDispatcherAction::ExecuteInternal(const TShare
 		}
 	}
 
-	UEdGraph* EventGraph = FMCPCommonUtils::FindOrCreateEventGraph(Blueprint);
+	UEdGraph* EventGraph = GetTargetGraph(Params, Context);
 
 	// Find the delegate property
 	FMulticastDelegateProperty* DelegateProp = FindFProperty<FMulticastDelegateProperty>(
@@ -1695,5 +1696,118 @@ TSharedPtr<FJsonObject> FCallBlueprintFunctionAction::ExecuteInternal(const TSha
 	ResultData->SetStringField(TEXT("node_id"), FunctionNode->NodeGuid.ToString());
 	ResultData->SetStringField(TEXT("function_name"), FunctionName);
 	ResultData->SetStringField(TEXT("target_blueprint"), TargetBlueprintName);
+	return CreateSuccessResponse(ResultData);
+}
+
+
+// ============================================================================
+// External Object Property Nodes
+// ============================================================================
+
+bool FSetObjectPropertyAction::Validate(const TSharedPtr<FJsonObject>& Params, FMCPEditorContext& Context, FString& OutError)
+{
+	FString PropertyName, OwnerClass;
+	if (!GetRequiredString(Params, TEXT("property_name"), PropertyName, OutError)) return false;
+	if (!GetRequiredString(Params, TEXT("owner_class"), OwnerClass, OutError)) return false;
+	return ValidateGraph(Params, Context, OutError);
+}
+
+TSharedPtr<FJsonObject> FSetObjectPropertyAction::ExecuteInternal(const TSharedPtr<FJsonObject>& Params, FMCPEditorContext& Context)
+{
+	FString PropertyName = Params->GetStringField(TEXT("property_name"));
+	FString OwnerClassName = Params->GetStringField(TEXT("owner_class"));
+	FVector2D Position = GetNodePosition(Params);
+
+	UBlueprint* Blueprint = GetTargetBlueprint(Params, Context);
+	UEdGraph* TargetGraph = GetTargetGraph(Params, Context);
+
+	// Find the owner class - try /Script/Engine first (most common), then blueprint
+	UClass* OwnerClass = LoadClass<UObject>(nullptr, *FString::Printf(TEXT("/Script/Engine.%s"), *OwnerClassName));
+	if (!OwnerClass)
+	{
+		UBlueprint* OwnerBP = FMCPCommonUtils::FindBlueprint(OwnerClassName);
+		if (OwnerBP) OwnerClass = OwnerBP->GeneratedClass;
+	}
+
+	if (!OwnerClass)
+	{
+		return CreateErrorResponse(FString::Printf(TEXT("Class not found: %s"), *OwnerClassName));
+	}
+
+	// Verify property exists
+	FProperty* Property = OwnerClass->FindPropertyByName(FName(*PropertyName));
+	if (!Property)
+	{
+		return CreateErrorResponse(FString::Printf(TEXT("Property '%s' not found on '%s'"), *PropertyName, *OwnerClassName));
+	}
+
+	// Create Set node with external member reference
+	UK2Node_VariableSet* VarSetNode = FEdGraphSchemaAction_K2NewNode::SpawnNode<UK2Node_VariableSet>(
+		TargetGraph, Position, EK2NewNodeFlags::None,
+		[&PropertyName, OwnerClass](UK2Node_VariableSet* Node) {
+			Node->VariableReference.SetExternalMember(FName(*PropertyName), OwnerClass);
+		}
+	);
+	VarSetNode->ReconstructNode();
+
+	MarkBlueprintModified(Blueprint, Context);
+	RegisterCreatedNode(VarSetNode, Context);
+
+	TSharedPtr<FJsonObject> ResultData = MakeShared<FJsonObject>();
+	ResultData->SetStringField(TEXT("node_id"), VarSetNode->NodeGuid.ToString());
+	ResultData->SetStringField(TEXT("property_name"), PropertyName);
+	ResultData->SetStringField(TEXT("owner_class"), OwnerClass->GetName());
+	return CreateSuccessResponse(ResultData);
+}
+
+
+// ============================================================================
+// Macro Instance Nodes
+// ============================================================================
+
+UEdGraph* FAddMacroInstanceNodeAction::FindMacroGraph(const FString& MacroName) const
+{
+	UBlueprint* MacroBP = LoadObject<UBlueprint>(nullptr,
+		TEXT("/Engine/EditorBlueprintResources/StandardMacros.StandardMacros"));
+	if (!MacroBP) return nullptr;
+
+	for (UEdGraph* Graph : MacroBP->MacroGraphs)
+	{
+		if (Graph && Graph->GetFName().ToString().Equals(MacroName, ESearchCase::IgnoreCase))
+			return Graph;
+	}
+	return nullptr;
+}
+
+bool FAddMacroInstanceNodeAction::Validate(const TSharedPtr<FJsonObject>& Params, FMCPEditorContext& Context, FString& OutError)
+{
+	FString MacroName;
+	if (!GetRequiredString(Params, TEXT("macro_name"), MacroName, OutError)) return false;
+	if (!FindMacroGraph(MacroName))
+	{
+		OutError = FString::Printf(TEXT("Macro '%s' not found in StandardMacros"), *MacroName);
+		return false;
+	}
+	return ValidateGraph(Params, Context, OutError);
+}
+
+TSharedPtr<FJsonObject> FAddMacroInstanceNodeAction::ExecuteInternal(const TSharedPtr<FJsonObject>& Params, FMCPEditorContext& Context)
+{
+	FString MacroName = Params->GetStringField(TEXT("macro_name"));
+	UEdGraph* MacroGraph = FindMacroGraph(MacroName);
+
+	UBlueprint* Blueprint = GetTargetBlueprint(Params, Context);
+	UEdGraph* TargetGraph = GetTargetGraph(Params, Context);
+
+	UK2Node_MacroInstance* MacroNode = FEdGraphSchemaAction_K2NewNode::SpawnNode<UK2Node_MacroInstance>(
+		TargetGraph, GetNodePosition(Params), EK2NewNodeFlags::None,
+		[MacroGraph](UK2Node_MacroInstance* Node) { Node->SetMacroGraph(MacroGraph); }
+	);
+
+	MarkBlueprintModified(Blueprint, Context);
+	RegisterCreatedNode(MacroNode, Context);
+
+	TSharedPtr<FJsonObject> ResultData = MakeShared<FJsonObject>();
+	ResultData->SetStringField(TEXT("node_id"), MacroNode->NodeGuid.ToString());
 	return CreateSuccessResponse(ResultData);
 }

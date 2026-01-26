@@ -71,14 +71,13 @@ def get_tools() -> list[Tool]:
         ),
         Tool(
             name="bind_widget_event",
-            description="Bind an event on a widget component (e.g., button OnClicked) to a function.",
+            description="Bind an event on a widget component (e.g., button OnClicked). Creates a Component Bound Event node in the graph that fires when the event occurs.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "widget_name": {"type": "string", "description": "Name of the Widget Blueprint"},
-                    "widget_component_name": {"type": "string", "description": "Name of the widget component"},
-                    "event_name": {"type": "string", "description": "Event to bind (OnClicked, etc.)"},
-                    "function_name": {"type": "string", "description": "Function to bind to"}
+                    "widget_component_name": {"type": "string", "description": "Name of the widget component (e.g., RestartButton)"},
+                    "event_name": {"type": "string", "description": "Event to bind (OnClicked, OnPressed, OnReleased, etc.)"}
                 },
                 "required": ["widget_name", "widget_component_name", "event_name"]
             }

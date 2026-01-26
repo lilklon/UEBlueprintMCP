@@ -17,6 +17,7 @@
 #include "K2Node_FunctionEntry.h"
 #include "K2Node_VariableGet.h"
 #include "K2Node_CustomEvent.h"
+#include "K2Node_ComponentBoundEvent.h"
 #include "Kismet2/KismetEditorUtilities.h"
 
 // Helper to find widget blueprint in common paths
@@ -407,10 +408,6 @@ TSharedPtr<FJsonObject> FBindWidgetEventAction::ExecuteInternal(const TSharedPtr
 			TEXT("Delegate '%s' not found. Available: %s"), *EventName, *DelegateList));
 	}
 
-	// Generate handler function name
-	FString FunctionName = FString::Printf(TEXT("%s_%s"), *WidgetComponentName, *EventName);
-	Params->TryGetStringField(TEXT("function_name"), FunctionName);
-
 	// Get event graph
 	UEdGraph* EventGraph = FBlueprintEditorUtils::FindEventGraph(WidgetBlueprint);
 	if (!EventGraph)
@@ -418,63 +415,45 @@ TSharedPtr<FJsonObject> FBindWidgetEventAction::ExecuteInternal(const TSharedPtr
 		return FMCPCommonUtils::CreateErrorResponse(TEXT("Failed to find event graph"));
 	}
 
-	// Check if handler already exists
-	UK2Node_CustomEvent* ExistingEvent = nullptr;
+	// Check if Component Bound Event node already exists for this widget/delegate combo
 	for (UEdGraphNode* Node : EventGraph->Nodes)
 	{
-		UK2Node_CustomEvent* CustomEventNode = Cast<UK2Node_CustomEvent>(Node);
-		if (CustomEventNode && CustomEventNode->CustomFunctionName == FName(*FunctionName))
+		UK2Node_ComponentBoundEvent* ExistingEvent = Cast<UK2Node_ComponentBoundEvent>(Node);
+		if (ExistingEvent &&
+			ExistingEvent->ComponentPropertyName == FName(*WidgetComponentName) &&
+			ExistingEvent->DelegatePropertyName == DelegateProp->GetFName())
 		{
-			ExistingEvent = CustomEventNode;
-			break;
+			// Already exists - return the existing node
+			TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
+			ResultObj->SetBoolField(TEXT("success"), true);
+			ResultObj->SetBoolField(TEXT("already_exists"), true);
+			ResultObj->SetStringField(TEXT("widget_name"), WidgetComponentName);
+			ResultObj->SetStringField(TEXT("event_name"), EventName);
+			ResultObj->SetStringField(TEXT("node_id"), ExistingEvent->NodeGuid.ToString());
+			return ResultObj;
 		}
 	}
 
-	// Create custom event if it doesn't exist
-	if (!ExistingEvent)
+	// Calculate position for new node (below existing nodes)
+	float MaxY = 0.0f;
+	for (UEdGraphNode* Node : EventGraph->Nodes)
 	{
-		float MaxY = 0.0f;
-		for (UEdGraphNode* Node : EventGraph->Nodes)
-		{
-			MaxY = FMath::Max(MaxY, Node->NodePosY);
-		}
-
-		UK2Node_CustomEvent* CustomEvent = NewObject<UK2Node_CustomEvent>(EventGraph);
-		EventGraph->AddNode(CustomEvent, false, false);
-		CustomEvent->CreateNewGuid();
-		CustomEvent->CustomFunctionName = FName(*FunctionName);
-		CustomEvent->bIsEditable = true;
-		CustomEvent->NodePosX = 200;
-		CustomEvent->NodePosY = MaxY + 200;
-		CustomEvent->PostPlacedNewNode();
-		CustomEvent->AllocateDefaultPins();
-
-		ExistingEvent = CustomEvent;
+		MaxY = FMath::Max(MaxY, (float)Node->NodePosY);
 	}
 
-	// Create UMG delegate binding
-	FDelegateEditorBinding NewBinding;
-	NewBinding.ObjectName = WidgetComponentName;
-	NewBinding.PropertyName = FName(*EventName);
-	NewBinding.FunctionName = FName(*FunctionName);
-	NewBinding.Kind = EBindingKind::Function;
+	// Create Component Bound Event node - this is the proper way to handle widget events
+	UK2Node_ComponentBoundEvent* EventNode = NewObject<UK2Node_ComponentBoundEvent>(EventGraph);
+	EventNode->ComponentPropertyName = FName(*WidgetComponentName);
+	EventNode->DelegatePropertyName = DelegateProp->GetFName();
+	EventNode->DelegateOwnerClass = Widget->GetClass();
 
-	// Check if binding already exists
-	bool bBindingExists = false;
-	for (const FDelegateEditorBinding& Binding : WidgetBlueprint->Bindings)
-	{
-		if (Binding.ObjectName == NewBinding.ObjectName && Binding.PropertyName == NewBinding.PropertyName)
-		{
-			bBindingExists = true;
-			break;
-		}
-	}
+	EventGraph->AddNode(EventNode, false, false);
+	EventNode->CreateNewGuid();
+	EventNode->NodePosX = 200;
+	EventNode->NodePosY = (int32)(MaxY + 200);
+	EventNode->AllocateDefaultPins();
 
-	if (!bBindingExists)
-	{
-		WidgetBlueprint->Bindings.Add(NewBinding);
-		UE_LOG(LogTemp, Log, TEXT("Added UMG binding: %s.%s -> %s"), *WidgetComponentName, *EventName, *FunctionName);
-	}
+	UE_LOG(LogTemp, Log, TEXT("Created Component Bound Event: %s.%s"), *WidgetComponentName, *EventName);
 
 	// Compile and save
 	FKismetEditorUtilities::CompileBlueprint(WidgetBlueprint);
@@ -484,8 +463,7 @@ TSharedPtr<FJsonObject> FBindWidgetEventAction::ExecuteInternal(const TSharedPtr
 	ResultObj->SetBoolField(TEXT("success"), true);
 	ResultObj->SetStringField(TEXT("widget_name"), WidgetComponentName);
 	ResultObj->SetStringField(TEXT("event_name"), EventName);
-	ResultObj->SetStringField(TEXT("function_name"), FunctionName);
-	ResultObj->SetStringField(TEXT("node_id"), ExistingEvent->NodeGuid.ToString());
+	ResultObj->SetStringField(TEXT("node_id"), EventNode->NodeGuid.ToString());
 	return ResultObj;
 }
 

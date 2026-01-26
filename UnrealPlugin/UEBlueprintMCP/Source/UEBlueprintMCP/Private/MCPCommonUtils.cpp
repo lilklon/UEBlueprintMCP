@@ -1,6 +1,7 @@
 // Copyright (c) 2025 zolnoor. All rights reserved.
 
 #include "MCPCommonUtils.h"
+#include "AssetRegistry/AssetRegistryModule.h"
 #include "Engine/Blueprint.h"
 #include "Engine/BlueprintGeneratedClass.h"
 #include "Engine/SimpleConstructionScript.h"
@@ -89,8 +90,28 @@ FVector2D FMCPCommonUtils::GetVector2DFromJson(const TSharedPtr<FJsonObject>& Js
 
 UBlueprint* FMCPCommonUtils::FindBlueprint(const FString& BlueprintName)
 {
-	FString AssetPath = TEXT("/Game/Blueprints/") + BlueprintName;
-	return LoadObject<UBlueprint>(nullptr, *AssetPath);
+	if (BlueprintName.IsEmpty()) return nullptr;
+
+	// Search asset registry for all blueprint types (including Widget Blueprints)
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+	IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
+
+	FARFilter Filter;
+	Filter.bRecursiveClasses = true;
+	Filter.ClassPaths.Add(UBlueprint::StaticClass()->GetClassPathName());
+
+	TArray<FAssetData> AssetList;
+	AssetRegistry.GetAssets(Filter, AssetList);
+
+	for (const FAssetData& AssetData : AssetList)
+	{
+		if (AssetData.AssetName.ToString() == BlueprintName)
+		{
+			return Cast<UBlueprint>(AssetData.GetAsset());
+		}
+	}
+
+	return nullptr;
 }
 
 UEdGraph* FMCPCommonUtils::FindOrCreateEventGraph(UBlueprint* Blueprint)

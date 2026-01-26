@@ -301,3 +301,35 @@ protected:
 	virtual bool Validate(const TSharedPtr<FJsonObject>& Params, FMCPEditorContext& Context, FString& OutError) override;
 	virtual FString GetActionName() const override { return TEXT("call_blueprint_function"); }
 };
+
+
+// ============================================================================
+// External Object Property Nodes
+// ============================================================================
+
+/** Set a property on an external object reference (e.g., bShowMouseCursor on PlayerController) */
+class UEBLUEPRINTMCP_API FSetObjectPropertyAction : public FBlueprintNodeAction
+{
+public:
+	virtual TSharedPtr<FJsonObject> ExecuteInternal(const TSharedPtr<FJsonObject>& Params, FMCPEditorContext& Context) override;
+protected:
+	virtual bool Validate(const TSharedPtr<FJsonObject>& Params, FMCPEditorContext& Context, FString& OutError) override;
+	virtual FString GetActionName() const override { return TEXT("set_object_property"); }
+};
+
+
+// ============================================================================
+// Macro Instance Nodes
+// ============================================================================
+
+/** Add a macro instance node (ForEachLoop, ForLoop, WhileLoop, etc.) */
+class UEBLUEPRINTMCP_API FAddMacroInstanceNodeAction : public FBlueprintNodeAction
+{
+public:
+	virtual TSharedPtr<FJsonObject> ExecuteInternal(const TSharedPtr<FJsonObject>& Params, FMCPEditorContext& Context) override;
+protected:
+	virtual bool Validate(const TSharedPtr<FJsonObject>& Params, FMCPEditorContext& Context, FString& OutError) override;
+	virtual FString GetActionName() const override { return TEXT("add_macro_instance_node"); }
+private:
+	UEdGraph* FindMacroGraph(const FString& MacroName) const;
+};

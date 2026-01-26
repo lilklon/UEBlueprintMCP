@@ -167,6 +167,9 @@ TSharedPtr<FJsonObject> FSpawnActorAction::ExecuteInternal(const TSharedPtr<FJso
 	NewActor->SetActorLabel(*ActorName);
 	Context.LastCreatedActorName = ActorName;
 
+	// Mark level dirty so auto-save works
+	Context.MarkPackageDirty(World->GetOutermost());
+
 	UE_LOG(LogTemp, Log, TEXT("UEBlueprintMCP: Spawned actor '%s' of type '%s'"), *ActorName, *ActorType);
 
 	return CreateSuccessResponse(FMCPCommonUtils::ActorToJsonObject(NewActor));
@@ -217,8 +220,16 @@ TSharedPtr<FJsonObject> FDeleteActorAction::ExecuteInternal(const TSharedPtr<FJs
 	// Store info before deletion
 	TSharedPtr<FJsonObject> ActorInfo = FMCPCommonUtils::ActorToJsonObject(Actor);
 
-	// Delete
-	Actor->Destroy();
+	// Use editor-proper destruction which handles World Partition external actors
+	bool bDestroyed = World->EditorDestroyActor(Actor, true);
+	if (!bDestroyed)
+	{
+		// Fallback to regular destroy
+		Actor->Destroy();
+	}
+
+	// Mark world dirty
+	Context.MarkPackageDirty(World->GetOutermost());
 
 	UE_LOG(LogTemp, Log, TEXT("UEBlueprintMCP: Deleted actor '%s'"), *ActorName);
 
@@ -275,7 +286,9 @@ TSharedPtr<FJsonObject> FSetActorTransformAction::ExecuteInternal(const TSharedP
 	}
 
 	Actor->SetActorTransform(Transform);
-	Actor->MarkPackageDirty();
+
+	// Mark level dirty so auto-save works
+	Context.MarkPackageDirty(World->GetOutermost());
 
 	UE_LOG(LogTemp, Log, TEXT("UEBlueprintMCP: Set transform on actor '%s'"), *ActorName);
 
@@ -363,7 +376,8 @@ TSharedPtr<FJsonObject> FSetActorPropertyAction::ExecuteInternal(const TSharedPt
 		return CreateErrorResponse(ErrorMessage, TEXT("property_set_failed"));
 	}
 
-	Actor->MarkPackageDirty();
+	// Mark level dirty so auto-save works
+	Context.MarkPackageDirty(World->GetOutermost());
 
 	UE_LOG(LogTemp, Log, TEXT("UEBlueprintMCP: Set property '%s' on actor '%s'"), *PropertyName, *ActorName);
 

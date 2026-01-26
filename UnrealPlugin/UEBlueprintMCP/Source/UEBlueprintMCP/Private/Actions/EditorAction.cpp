@@ -1,6 +1,7 @@
 // Copyright (c) 2025 zolnoor. All rights reserved.
 
 #include "Actions/EditorAction.h"
+#include "MCPCommonUtils.h"
 #include "Engine/Blueprint.h"
 #include "EdGraph/EdGraph.h"
 #include "EdGraph/EdGraphNode.h"
@@ -166,27 +167,12 @@ UBlueprint* FEditorAction::FindBlueprint(const FString& BlueprintName, FString& 
 		return nullptr;
 	}
 
-	// Search asset registry
-	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
-	IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
-
-	TArray<FAssetData> AssetList;
-	AssetRegistry.GetAssetsByClass(UBlueprint::StaticClass()->GetClassPathName(), AssetList);
-
-	for (const FAssetData& AssetData : AssetList)
+	UBlueprint* BP = FMCPCommonUtils::FindBlueprint(BlueprintName);
+	if (!BP)
 	{
-		if (AssetData.AssetName.ToString() == BlueprintName)
-		{
-			UBlueprint* BP = Cast<UBlueprint>(AssetData.GetAsset());
-			if (BP)
-			{
-				return BP;
-			}
-		}
+		OutError = FString::Printf(TEXT("Blueprint '%s' not found"), *BlueprintName);
 	}
-
-	OutError = FString::Printf(TEXT("Blueprint '%s' not found"), *BlueprintName);
-	return nullptr;
+	return BP;
 }
 
 UEdGraph* FEditorAction::FindGraph(UBlueprint* Blueprint, const FString& GraphName, FString& OutError) const

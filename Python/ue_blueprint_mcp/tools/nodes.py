@@ -111,7 +111,8 @@ def get_tools() -> list[Tool]:
                 "properties": {
                     "blueprint_name": {"type": "string", "description": "Name of the Blueprint"},
                     "dispatcher_name": {"type": "string", "description": "Name of the dispatcher to call"},
-                    "node_position": {"type": "array", "items": {"type": "number"}, "description": "[X, Y] position"}
+                    "node_position": {"type": "array", "items": {"type": "number"}, "description": "[X, Y] position"},
+                    "graph_name": {"type": "string", "description": "Optional function graph name (defaults to event graph)"}
                 },
                 "required": ["blueprint_name", "dispatcher_name"]
             }
@@ -125,7 +126,8 @@ def get_tools() -> list[Tool]:
                     "blueprint_name": {"type": "string", "description": "Blueprint where to add the bind node"},
                     "dispatcher_name": {"type": "string", "description": "Name of the dispatcher to bind to"},
                     "target_blueprint": {"type": "string", "description": "Blueprint that owns the dispatcher"},
-                    "node_position": {"type": "array", "items": {"type": "number"}, "description": "[X, Y] position"}
+                    "node_position": {"type": "array", "items": {"type": "number"}, "description": "[X, Y] position"},
+                    "graph_name": {"type": "string", "description": "Optional function graph name (defaults to event graph)"}
                 },
                 "required": ["blueprint_name", "dispatcher_name"]
             }
@@ -249,6 +251,21 @@ def get_tools() -> list[Tool]:
                 "required": ["blueprint_name", "node_id", "pin_name", "default_value"]
             }
         ),
+        Tool(
+            name="set_object_property",
+            description="Create a Set Property node for an external object (e.g., bShowMouseCursor on PlayerController).",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "blueprint_name": {"type": "string", "description": "Name of the Blueprint"},
+                    "owner_class": {"type": "string", "description": "Class that owns the property (e.g., PlayerController)"},
+                    "property_name": {"type": "string", "description": "Property to set (e.g., bShowMouseCursor)"},
+                    "node_position": {"type": "array", "items": {"type": "number"}, "description": "[X, Y] position"},
+                    "graph_name": {"type": "string", "description": "Optional function graph name"}
+                },
+                "required": ["blueprint_name", "owner_class", "property_name"]
+            }
+        ),
 
         # =====================================================================
         # Reference Nodes
@@ -308,6 +325,20 @@ def get_tools() -> list[Tool]:
                 "required": ["blueprint_name"]
             }
         ),
+        Tool(
+            name="add_macro_instance_node",
+            description="Add a macro instance node (ForEachLoop, ForLoop, WhileLoop, DoOnce, Gate, etc.) to a Blueprint graph.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "blueprint_name": {"type": "string", "description": "Name of the Blueprint"},
+                    "macro_name": {"type": "string", "description": "Name of the macro (ForEachLoop, ForLoop, WhileLoop, DoOnce, Gate, etc.)"},
+                    "graph_name": {"type": "string", "description": "Optional function graph name (defaults to event graph)"},
+                    "node_position": {"type": "array", "items": {"type": "number"}, "description": "[X, Y] position in graph"}
+                },
+                "required": ["blueprint_name", "macro_name"]
+            }
+        ),
 
         # =====================================================================
         # Spawning
@@ -348,11 +379,12 @@ def get_tools() -> list[Tool]:
         ),
         Tool(
             name="find_blueprint_nodes",
-            description="Find nodes in a Blueprint's event graph.",
+            description="Find nodes in a Blueprint's graph (event graph or function graph).",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "blueprint_name": {"type": "string", "description": "Name of the Blueprint"},
+                    "graph_name": {"type": "string", "description": "Optional function graph name (defaults to event graph)"},
                     "node_type": {"type": "string", "description": "Type of node (Event, Function, Variable, etc.)"},
                     "event_type": {"type": "string", "description": "Specific event type (BeginPlay, Tick, etc.)"}
                 },
@@ -366,7 +398,8 @@ def get_tools() -> list[Tool]:
                 "type": "object",
                 "properties": {
                     "blueprint_name": {"type": "string", "description": "Name of the Blueprint"},
-                    "node_id": {"type": "string", "description": "GUID of the node to delete"}
+                    "node_id": {"type": "string", "description": "GUID of the node to delete"},
+                    "graph_name": {"type": "string", "description": "Optional function graph name (defaults to event graph)"}
                 },
                 "required": ["blueprint_name", "node_id"]
             }
@@ -378,7 +411,8 @@ def get_tools() -> list[Tool]:
                 "type": "object",
                 "properties": {
                     "blueprint_name": {"type": "string", "description": "Name of the Blueprint"},
-                    "node_id": {"type": "string", "description": "GUID of the node"}
+                    "node_id": {"type": "string", "description": "GUID of the node"},
+                    "graph_name": {"type": "string", "description": "Optional function graph name (defaults to event graph)"}
                 },
                 "required": ["blueprint_name", "node_id"]
             }
@@ -405,12 +439,14 @@ TOOL_HANDLERS = {
     "add_blueprint_variable_get": "add_blueprint_variable_get",
     "add_blueprint_variable_set": "add_blueprint_variable_set",
     "set_node_pin_default": "set_node_pin_default",
+    "set_object_property": "set_object_property",
     # References
     "add_blueprint_get_self_component_reference": "add_blueprint_get_self_component_reference",
     "add_blueprint_self_reference": "add_blueprint_self_reference",
     "add_blueprint_cast_node": "add_blueprint_cast_node",
     # Flow Control
     "add_blueprint_branch_node": "add_blueprint_branch_node",
+    "add_macro_instance_node": "add_macro_instance_node",
     # Spawning
     "add_spawn_actor_from_class_node": "add_spawn_actor_from_class_node",
     # Graph Operations

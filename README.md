@@ -1,33 +1,35 @@
-# UE Blueprint MCP
+# UEBlueprintMCP
 
-A robust MCP (Model Context Protocol) server for Unreal Engine 5.7+ Blueprint manipulation with persistent connections and crash protection.
+A Model Context Protocol (MCP) server for AI-assisted Unreal Engine 5.7+ Blueprint manipulation with persistent TCP connections and auto-save.
 
 ## Features
 
-- **Persistent TCP Connections**: Socket stays open between commands (no reconnect per command)
-- **Crash Protection**: SEH on Windows, defensive programming everywhere
-- **Stateful Editor Context**: Track current Blueprint, graph, and recently created objects
-- **Auto-Save**: Dirty packages saved automatically after successful operations
-- **Comprehensive Error Reporting**: Clear error messages with error types
+- **60+ MCP Commands** for Blueprints, Materials, Widgets, Enhanced Input, and Editor control
+- **Persistent TCP Connection** - Socket stays open between commands (port 55558)
+- **Auto-Save** - Dirty packages saved automatically after every successful operation
+- **Crash Protection** - All operations flow through a validation/execution pipeline
+- **String-Based Resolution** - Accept Blueprint names, asset paths, or engine class names
 
-## Architecture
+## Supported Operations
 
-### Python Side (`Python/`)
-- `ue_blueprint_mcp/` - Main package
-  - `server.py` - MCP server entry point
-  - `connection.py` - PersistentUnrealConnection class
-  - `tools/` - Tool modules (blueprint, editor, nodes, project, umg)
-
-### C++ Plugin (`UnrealPlugin/UEBlueprintMCP/`)
-- Editor subsystem with TCP bridge
-- Action-based command handling with crash protection
-- Modular architecture for maintainability
+| Category | Commands |
+|----------|----------|
+| **Blueprints** | Create, compile, add components, set properties |
+| **Graph Nodes** | Events, functions, variables, branches, casts, spawns |
+| **Event Dispatchers** | Create, bind, and call multicast delegates |
+| **Enhanced Input** | Create Input Actions, Mapping Contexts, key bindings |
+| **Materials** | Create materials, add expressions, connect nodes, post-process |
+| **UMG Widgets** | Create widgets, add text/buttons, bind events |
+| **Editor** | Spawn actors, viewport control, save operations |
 
 ## Setup
 
-### Python MCP Server
+### 1. Install the Unreal Plugin
 
-1. Create virtual environment:
+Copy or symlink `UnrealPlugin/UEBlueprintMCP/` to your project's `Plugins/` folder, then rebuild.
+
+### 2. Set Up the Python MCP Server
+
 ```bash
 cd Python
 python -m venv venv
@@ -35,7 +37,10 @@ venv\Scripts\activate  # Windows
 pip install -r requirements.txt
 ```
 
-2. Configure MCP in your project's `.mcp.json`:
+### 3. Configure MCP Client
+
+Add to your project's `.mcp.json`:
+
 ```json
 {
   "mcpServers": {
@@ -47,30 +52,44 @@ pip install -r requirements.txt
 }
 ```
 
-### Unreal Plugin
+### 4. Launch
 
-1. Copy `UnrealPlugin/UEBlueprintMCP/` to your project's `Plugins/` folder
-2. Regenerate project files
-3. Build in Visual Studio
+1. Open your Unreal project (plugin starts TCP server on port 55558)
+2. Connect your MCP client (e.g., Claude Code with `/mcp`)
 
-## Usage
+## Architecture
 
-The MCP server exposes tools for:
+```
+MCP Client (Claude Code, etc.)
+    |
+    v  MCP Protocol
+Python Server (ue_blueprint_mcp)
+    |
+    v  TCP/JSON (port 55558, persistent)
+C++ Plugin (MCPBridge)
+    |
+    v  Action dispatch
+FEditorAction subclasses
+    |
+    v  Validate -> Execute -> Auto-Save
+Unreal Editor
+```
 
-- **Editor**: Actor spawning, viewport control, save operations
-- **Blueprint**: Create/compile blueprints, add components, set properties
-- **Nodes**: Event nodes, function calls, variables, graph operations
-- **Project**: Input mappings, Enhanced Input system
-- **UMG**: Widget Blueprint creation and manipulation
+All editor operations flow through `FEditorAction` subclasses that provide:
+- Pre-execution validation
+- Graceful error handling with descriptive messages
+- Automatic dirty package tracking and save
 
-## Development Status
+## Documentation
 
-Phase 0: Project Setup ✅
-Phase 1: Port Core Infrastructure 🔄
-Phase 2: Safe Execution (coming)
-Phase 3: Persistent Connection (coming)
-Phase 4: Port Command Handlers (coming)
-Phase 5: Integration & Cleanup (coming)
+- **[CLAUDE.md](CLAUDE.md)** - Architecture details and contribution guidelines
+- **[docs/SKILL.md](docs/SKILL.md)** - Full command reference for Claude Code
+
+## Requirements
+
+- Unreal Engine 5.7+
+- Python 3.10+
+- Visual Studio 2022 (for plugin builds)
 
 ## License
 

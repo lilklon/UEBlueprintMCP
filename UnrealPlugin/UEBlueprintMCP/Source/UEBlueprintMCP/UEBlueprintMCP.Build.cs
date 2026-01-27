@@ -40,8 +40,11 @@ public class UEBlueprintMCP : ModuleRules
 			"RenderCore",         // For material shader compilation
 		});
 
-		// Ensure proper RTTI/exceptions for crash handling
-		bUseRTTI = true;
-		bEnableExceptions = true;
+		// RTTI/exceptions for crash handling (Windows SEH only - disable on Mac to avoid linker errors)
+		if (Target.Platform == UnrealTargetPlatform.Win64)
+		{
+			bUseRTTI = true;
+			bEnableExceptions = true;
+		}
 	}
 }

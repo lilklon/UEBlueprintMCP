@@ -29,13 +29,26 @@ def _result_to_text(result: CommandResult) -> list[TextContent]:
     return [TextContent(type="text", text=json.dumps(result.to_dict(), indent=2))]
 
 
-def _send_command(command_type: str, params: dict | None = None) -> list[TextContent]:
-    """Helper to send command and format response."""
+def _send_command_sync(command_type: str, params: dict | None = None) -> list[TextContent]:
+    """Helper to send command and format response (synchronous)."""
     conn = get_connection()
     if not conn.is_connected:
         conn.connect()
     result = conn.send_command(command_type, params)
     return _result_to_text(result)
+
+
+async def _send_command(command_type: str, params: dict | None = None) -> list[TextContent]:
+    """Helper to send command and format response (async-safe)."""
+    return await asyncio.to_thread(_send_command_sync, command_type, params)
+
+
+def _ping_sync() -> bool:
+    """Synchronous ping helper."""
+    conn = get_connection()
+    if not conn.is_connected:
+        conn.connect()
+    return conn.ping()
 
 
 # =============================================================================
@@ -77,14 +90,11 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
     # Connection tools
     if name == "ping":
-        conn = get_connection()
-        if not conn.is_connected:
-            conn.connect()
-        success = conn.ping()
+        success = await asyncio.to_thread(_ping_sync)
         return [TextContent(type="text", text=f'{{"success": {str(success).lower()}, "pong": {str(success).lower()}}}')]
 
     if name == "get_context":
-        return _send_command("get_context")
+        return await _send_command("get_context")
 
     # Route to tool modules
     if name in editor.TOOL_HANDLERS:

@@ -116,6 +116,10 @@ class PersistentUnrealConnection:
                 if sys.platform == 'darwin':
                     self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 65536)
                     self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 65536)
+                    # Enable keepalive to prevent C++ server timeout during long idle periods
+                    self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+                    TCP_KEEPALIVE = 0x10  # Mac-specific: interval between keepalive probes
+                    self._socket.setsockopt(socket.IPPROTO_TCP, TCP_KEEPALIVE, 30)
 
                 self._socket.connect((self.config.host, self.config.port))
 

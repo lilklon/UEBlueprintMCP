@@ -417,6 +417,20 @@ def get_tools() -> list[Tool]:
                 "required": ["blueprint_name", "node_id"]
             }
         ),
+        Tool(
+            name="set_node_position",
+            description="Set the position of a node in a Blueprint's graph.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "blueprint_name": {"type": "string", "description": "Name of the Blueprint"},
+                    "node_id": {"type": "string", "description": "GUID of the node"},
+                    "node_position": {"type": "array", "items": {"type": "number"}, "description": "[X, Y] position in graph"},
+                    "graph_name": {"type": "string", "description": "Optional function graph name (defaults to event graph)"}
+                },
+                "required": ["blueprint_name", "node_id", "node_position"]
+            }
+        ),
     ]
 
 
@@ -454,6 +468,7 @@ TOOL_HANDLERS = {
     "find_blueprint_nodes": "find_blueprint_nodes",
     "delete_blueprint_node": "delete_blueprint_node",
     "get_node_pins": "get_node_pins",
+    "set_node_position": "set_node_position",
 }
 
 

@@ -333,6 +333,63 @@ TSharedPtr<FJsonObject> FGetNodePinsAction::ExecuteInternal(const TSharedPtr<FJs
 
 
 // ============================================================================
+// Node Positioning
+// ============================================================================
+
+bool FSetNodePositionAction::Validate(const TSharedPtr<FJsonObject>& Params, FMCPEditorContext& Context, FString& OutError)
+{
+	FString NodeId;
+	if (!GetRequiredString(Params, TEXT("node_id"), NodeId, OutError)) return false;
+
+	const TArray<TSharedPtr<FJsonValue>>* PosArray;
+	if (!Params->TryGetArrayField(TEXT("node_position"), PosArray) || PosArray->Num() < 2)
+	{
+		OutError = TEXT("node_position must be an [X, Y] array");
+		return false;
+	}
+
+	return ValidateGraph(Params, Context, OutError);
+}
+
+TSharedPtr<FJsonObject> FSetNodePositionAction::ExecuteInternal(const TSharedPtr<FJsonObject>& Params, FMCPEditorContext& Context)
+{
+	FString NodeId = Params->GetStringField(TEXT("node_id"));
+	FVector2D Position = GetNodePosition(Params);
+
+	UBlueprint* Blueprint = GetTargetBlueprint(Params, Context);
+	UEdGraph* TargetGraph = GetTargetGraph(Params, Context);
+
+	// Find the node by GUID
+	UEdGraphNode* TargetNode = nullptr;
+	for (UEdGraphNode* Node : TargetGraph->Nodes)
+	{
+		if (Node->NodeGuid.ToString() == NodeId)
+		{
+			TargetNode = Node;
+			break;
+		}
+	}
+
+	if (!TargetNode)
+	{
+		return CreateErrorResponse(FString::Printf(TEXT("Node not found with ID: %s"), *NodeId));
+	}
+
+	// Set position
+	TargetNode->NodePosX = (int32)Position.X;
+	TargetNode->NodePosY = (int32)Position.Y;
+
+	MarkBlueprintModified(Blueprint, Context);
+
+	TSharedPtr<FJsonObject> ResultData = MakeShared<FJsonObject>();
+	ResultData->SetStringField(TEXT("node_id"), NodeId);
+	ResultData->SetNumberField(TEXT("node_x"), TargetNode->NodePosX);
+	ResultData->SetNumberField(TEXT("node_y"), TargetNode->NodePosY);
+	return CreateSuccessResponse(ResultData);
+}
+
+
+// ============================================================================
 // Event Nodes
 // ============================================================================
 

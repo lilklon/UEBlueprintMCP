@@ -59,6 +59,17 @@ protected:
 };
 
 
+/** Set the position of a node in the graph */
+class UEBLUEPRINTMCP_API FSetNodePositionAction : public FBlueprintNodeAction
+{
+public:
+	virtual TSharedPtr<FJsonObject> ExecuteInternal(const TSharedPtr<FJsonObject>& Params, FMCPEditorContext& Context) override;
+protected:
+	virtual bool Validate(const TSharedPtr<FJsonObject>& Params, FMCPEditorContext& Context, FString& OutError) override;
+	virtual FString GetActionName() const override { return TEXT("set_node_position"); }
+};
+
+
 // ============================================================================
 // Event Nodes
 // ============================================================================

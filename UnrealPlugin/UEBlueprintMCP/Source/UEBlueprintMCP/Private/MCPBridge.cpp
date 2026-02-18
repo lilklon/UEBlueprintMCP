@@ -100,6 +100,7 @@ void UMCPBridge::RegisterActions()
 	ActionHandlers.Add(TEXT("find_blueprint_nodes"), MakeShared<FFindBlueprintNodesAction>());
 	ActionHandlers.Add(TEXT("delete_blueprint_node"), MakeShared<FDeleteBlueprintNodeAction>());
 	ActionHandlers.Add(TEXT("get_node_pins"), MakeShared<FGetNodePinsAction>());
+	ActionHandlers.Add(TEXT("set_node_position"), MakeShared<FSetNodePositionAction>());
 
 	// =========================================================================
 	// Node Actions - Event Nodes

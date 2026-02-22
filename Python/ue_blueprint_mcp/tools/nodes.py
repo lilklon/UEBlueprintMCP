@@ -2,6 +2,7 @@
 Blueprint graph node tools - Events, functions, variables, and graph operations.
 """
 
+import asyncio
 import json
 from typing import Any
 from mcp.types import Tool, TextContent
@@ -9,13 +10,18 @@ from mcp.types import Tool, TextContent
 from ..connection import get_connection
 
 
-def _send_command(command_type: str, params: dict | None = None) -> list[TextContent]:
-    """Helper to send command and format response."""
+def _send_command_sync(command_type: str, params: dict | None = None) -> list[TextContent]:
+    """Helper to send command and format response (synchronous)."""
     conn = get_connection()
     if not conn.is_connected:
         conn.connect()
     result = conn.send_command(command_type, params)
     return [TextContent(type="text", text=json.dumps(result.to_dict(), indent=2))]
+
+
+async def _send_command(command_type: str, params: dict | None = None) -> list[TextContent]:
+    """Helper to send command and format response (async-safe)."""
+    return await asyncio.to_thread(_send_command_sync, command_type, params)
 
 
 def get_tools() -> list[Tool]:
@@ -478,4 +484,4 @@ async def handle_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]
     if not command_type:
         return [TextContent(type="text", text=f'{{"success": false, "error": "Unknown tool: {name}"}}')]
 
-    return _send_command(command_type, arguments if arguments else None)
+    return await _send_command(command_type, arguments if arguments else None)

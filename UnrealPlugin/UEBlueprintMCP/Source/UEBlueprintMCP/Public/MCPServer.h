@@ -85,7 +85,12 @@ private:
 	TAtomic<bool> bIsRunning;
 
 	/** Connection timeout in seconds */
+#if PLATFORM_MAC
+	// Mac: Longer timeout since keepalive handles connection health
+	static constexpr float ConnectionTimeout = 300.0f;
+#else
 	static constexpr float ConnectionTimeout = 60.0f;
+#endif
 
 	/** Receive buffer size */
 	static constexpr int32 RecvBufferSize = 1024 * 1024;  // 1MB

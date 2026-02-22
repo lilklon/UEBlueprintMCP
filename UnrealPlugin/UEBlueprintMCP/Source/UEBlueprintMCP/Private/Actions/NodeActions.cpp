@@ -1643,11 +1643,19 @@ TSharedPtr<FJsonObject> FAddSpawnActorFromClassNodeAction::ExecuteInternal(const
 		return CreateErrorResponse(FString::Printf(TEXT("Class to spawn not found: %s"), *ClassToSpawn));
 	}
 
+	// Pre-allocate pins in lambda so PostPlacedNewNode() doesn't crash.
+	// UE's SpawnNode calls PostPlacedNewNode BEFORE AllocateDefaultPins, but
+	// UK2Node_SpawnActorFromClass::PostPlacedNewNode uses FindPinChecked which
+	// crashes if pins don't exist. This is an Epic bug we work around here.
 	UK2Node_SpawnActorFromClass* SpawnNode = FEdGraphSchemaAction_K2NewNode::SpawnNode<UK2Node_SpawnActorFromClass>(
-		TargetGraph, Position, EK2NewNodeFlags::None
+		TargetGraph, Position, EK2NewNodeFlags::None,
+		[](UK2Node_SpawnActorFromClass* Node)
+		{
+			Node->AllocateDefaultPins();
+		}
 	);
 
-	// Set the class to spawn (must be done after pins are allocated)
+	// Set the class to spawn via the class pin
 	UEdGraphPin* ClassPin = SpawnNode->GetClassPin();
 	if (ClassPin)
 	{

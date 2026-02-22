@@ -283,3 +283,8 @@ Changes made for UE 5.7 compatibility:
 - `FImageUtils::CompressImageArray` → `PNGCompressImageArray` with `TArray64<uint8>`
 - `.uplugin` `WhitelistPlatforms` → `PlatformAllowList`
 - Global `BufferSize` renamed to `MCPRecvBufferSize` (name conflict)
+
+## Mac Compatibility Notes
+
+- **TCP_NODELAY required**: Python socket must set `TCP_NODELAY` to avoid 200-500ms latency from Nagle + macOS Delayed ACK interaction.
+- **HasPendingData before Recv**: C++ must check `HasPendingData()` before peek recv; Mac returns errors on blocking recv with no data.

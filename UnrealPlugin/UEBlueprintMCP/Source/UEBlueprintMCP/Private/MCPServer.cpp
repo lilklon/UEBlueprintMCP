@@ -156,9 +156,19 @@ void FMCPServer::Exit()
 
 void FMCPServer::HandleClient(FSocket* ClientSocket)
 {
-	// Set socket options
+	// Set socket options for low-latency communication
 	ClientSocket->SetNonBlocking(false);
-	ClientSocket->SetNoDelay(true);
+	ClientSocket->SetNoDelay(true);  // Disable Nagle's algorithm (critical for all platforms)
+
+#if PLATFORM_MAC
+	// Mac-specific: Larger socket buffers help with kqueue polling behavior
+	// and reduce latency caused by macOS's default delayed_ack=3 setting.
+	// These values are tuned for MCP's small JSON message pattern.
+	int32 RecvBufSize = 65536;
+	int32 SendBufSize = 65536;
+	ClientSocket->SetReceiveBufferSize(RecvBufSize, RecvBufSize);
+	ClientSocket->SetSendBufferSize(SendBufSize, SendBufSize);
+#endif
 
 	float LastActivityTime = FPlatformTime::Seconds();
 
@@ -173,7 +183,18 @@ void FMCPServer::HandleClient(FSocket* ClientSocket)
 			break;
 		}
 
-		// Check if connection is still alive by trying a peek recv
+		// Check if data is available FIRST (non-blocking check)
+		uint32 PendingDataSize = 0;
+		if (!ClientSocket->HasPendingData(PendingDataSize) || PendingDataSize == 0)
+		{
+			// No data available - sleep briefly and continue
+			// On Mac, we must NOT do a blocking peek recv when there's no data,
+			// as it can return errors that look like disconnections.
+			FPlatformProcess::Sleep(0.01f);
+			continue;
+		}
+
+		// Data is available - now safe to peek to verify connection health
 		uint8 PeekByte;
 		int32 PeekBytes = 0;
 		if (!ClientSocket->Recv(&PeekByte, 1, PeekBytes, ESocketReceiveFlags::Peek))
@@ -187,15 +208,6 @@ void FMCPServer::HandleClient(FSocket* ClientSocket)
 			// Connection closed by peer (EOF)
 			UE_LOG(LogTemp, Log, TEXT("UEBlueprintMCP: Client disconnected (EOF)"));
 			break;
-		}
-
-		// Check if data is available
-		uint32 PendingDataSize = 0;
-		if (!ClientSocket->HasPendingData(PendingDataSize) || PendingDataSize == 0)
-		{
-			// No data, sleep briefly
-			FPlatformProcess::Sleep(0.01f);
-			continue;
 		}
 
 		// Receive message

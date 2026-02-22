@@ -7,6 +7,7 @@ this maintains a persistent socket with heartbeat and auto-reconnect.
 
 import json
 import socket
+import sys
 import threading
 import time
 import logging
@@ -104,14 +105,30 @@ class PersistentUnrealConnection:
             try:
                 self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self._socket.settimeout(self.config.timeout)
+
+                # CRITICAL: Disable Nagle's algorithm to prevent latency on small packets.
+                # Without this, Mac's Delayed ACK (default net.inet.tcp.delayed_ack=3)
+                # interacts badly with Nagle, causing 200-500ms delays per command.
+                self._socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+
+                # Mac-specific: Larger buffers help with kqueue polling and reduce
+                # latency from macOS's delayed_ack behavior. No effect on Windows.
+                if sys.platform == 'darwin':
+                    self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 65536)
+                    self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 65536)
+                    # Enable keepalive to prevent C++ server timeout during long idle periods
+                    self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+                    TCP_KEEPALIVE = 0x10  # Mac-specific: interval between keepalive probes
+                    self._socket.setsockopt(socket.IPPROTO_TCP, TCP_KEEPALIVE, 30)
+
                 self._socket.connect((self.config.host, self.config.port))
 
                 self._state = ConnectionState.CONNECTED
                 self._reconnect_attempts = 0
                 self._last_activity = time.time()
 
-                # Start heartbeat thread
-                self._start_heartbeat()
+                # Heartbeat disabled - it can steal responses from main thread
+                # self._start_heartbeat()
 
                 logger.info(f"Connected to Unreal at {self.config.host}:{self.config.port}")
                 return True
